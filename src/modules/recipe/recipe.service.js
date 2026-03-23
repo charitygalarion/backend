@@ -2,7 +2,9 @@ const db = require('../../database/models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
-const huggingFaceVision = require('../../services/huggingFaceVision.service');
+
+const geminiVision = require('../../services/geminiVision.service');
+
 
 
 class RecipeService {
@@ -373,17 +375,15 @@ class RecipeService {
   }
 }
 
-  async scanIngredientsFromImage(imageBuffer) {
+async scanIngredientsFromImage(imageBuffer) {
     try {
       console.log('📸 Scanning ingredients from image...');
       
-      // Detect using Hugging Face
-      const detectedIngredients = await huggingFaceVision.detectIngredients(imageBuffer);
-      
+      const detectedIngredients = await geminiVision.detectIngredients(imageBuffer);
       const ingredientNames = detectedIngredients.map(i => i.name.toLowerCase());
+      
       console.log('🔍 Detected:', ingredientNames.join(', '));
       
-      // Find matching recipes
       const recipes = await this.findRecipesByIngredients(ingredientNames);
       
       return {
@@ -395,7 +395,6 @@ class RecipeService {
       throw error;
     }
   }
-
 
 }
 
