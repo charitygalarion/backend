@@ -2,6 +2,8 @@ const db = require('../../database/models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const huggingFaceVision = require('../../services/huggingFaceVision.service');
+
 
 class RecipeService {
   async getAllRecipes(filters = {}) {
@@ -371,16 +373,17 @@ class RecipeService {
   }
 }
 
-
- async scanIngredientsFromImage(imageBuffer) {
+  async scanIngredientsFromImage(imageBuffer) {
     try {
-      // Detect ingredients using Azure Vision
-      const detectedIngredients = await azureVision.detectIngredients(imageBuffer);
+      console.log('📸 Scanning ingredients from image...');
       
-      // Extract just the ingredient names
+      // Detect using Hugging Face
+      const detectedIngredients = await huggingFaceVision.detectIngredients(imageBuffer);
+      
       const ingredientNames = detectedIngredients.map(i => i.name.toLowerCase());
+      console.log('🔍 Detected:', ingredientNames.join(', '));
       
-      // Find recipes that match these ingredients
+      // Find matching recipes
       const recipes = await this.findRecipesByIngredients(ingredientNames);
       
       return {
@@ -388,7 +391,7 @@ class RecipeService {
         recipes: recipes
       };
     } catch (error) {
-      console.error('Scan ingredients error:', error);
+      console.error('❌ Scan error:', error);
       throw error;
     }
   }

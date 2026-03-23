@@ -12,6 +12,7 @@ router.post('/find-by-ingredients', recipeController.findRecipesByIngredients);
 // Protected routes - MUST be BEFORE /:id
 router.get('/saved', protect, recipeController.getSavedRecipes);  // ✅ Moved before /:id
 router.put('/:id/servings', protect, recipeController.adjustServingSize);
+
 router.post('/scan', protect, upload.single('image'), recipeController.scanIngredients);
 
 // Public route with param - should be AFTER specific routes
