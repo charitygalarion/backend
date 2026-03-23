@@ -27,7 +27,7 @@ exports.getIngredientById = async (req, res) => {
 
 exports.createIngredient = async (req, res) => {
   try {
-    const ingredient = await ingredientService.createIngredient(req.body);
+    const ingredient = await ingredientService.createIngredient(req.body, req.file);
     res.status(201).json(transformResponse(ingredient));
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -37,7 +37,7 @@ exports.createIngredient = async (req, res) => {
 exports.updateIngredient = async (req, res) => {
   try {
     const { id } = req.params;
-    const ingredient = await ingredientService.updateIngredient(id, req.body);
+    const ingredient = await ingredientService.updateIngredient(id, req.body, req.file);
     res.json(transformResponse(ingredient));
   } catch (error) {
     res.status(400).json({ message: error.message });

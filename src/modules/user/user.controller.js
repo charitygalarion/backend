@@ -13,15 +13,36 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = req.body;
+    const imageFile = req.file;
+    
+    // Parse mealTypes and dietaryRestrictions if they're strings
+    let parsedMealTypes = mealTypes;
+    let parsedDietaryRestrictions = dietaryRestrictions;
+    
+    if (mealTypes && typeof mealTypes === 'string') {
+      try {
+        parsedMealTypes = JSON.parse(mealTypes);
+      } catch (e) {
+        parsedMealTypes = mealTypes.split(',').map(m => m.trim());
+      }
+    }
+    
+    if (dietaryRestrictions && typeof dietaryRestrictions === 'string') {
+      try {
+        parsedDietaryRestrictions = JSON.parse(dietaryRestrictions);
+      } catch (e) {
+        parsedDietaryRestrictions = dietaryRestrictions.split(',').map(d => d.trim());
+      }
+    }
     
     const user = await userService.updateProfile(req.user._id, {
       username,
       email,
       firstName,
       lastName,
-      mealTypes,
-      dietaryRestrictions
-    });
+      mealTypes: parsedMealTypes,
+      dietaryRestrictions: parsedDietaryRestrictions
+    }, imageFile);
     
     res.json(transformResponse(user));
   } catch (error) {

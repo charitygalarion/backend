@@ -1,96 +1,363 @@
-const recipeService = require('./recipe.service');
-const { transformResponse } = require('../../utils/response.util');
+const db = require('../../database/models');
+const { Op } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
 
-exports.getRecipes = async (req, res) => {
-  try {
-    const { mealType, difficulty, search, limit } = req.query;
-    const recipes = await recipeService.getAllRecipes({
-      mealType,
-      difficulty,
-      search,
-      limit
+class RecipeService {
+  async getAllRecipes(filters = {}) {
+    const { mealType, difficulty, search, limit = 20 } = filters;
+    const where = {};
+    
+    if (mealType) where.mealType = mealType;
+    if (difficulty) where.difficulty = difficulty;
+    
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    
+    const recipes = await db.Recipe.findAll({
+      where,
+      include: [
+        {
+          model: db.User,
+          as: 'creator',
+          attributes: ['username', 'email']
+        },
+        {
+          model: db.RecipeIngredient,
+          as: 'ingredients',
+          attributes: ['name', 'quantity', 'unit', 'sortOrder'],
+          order: [['sortOrder', 'ASC']]
+        },
+        {
+          model: db.Instruction,
+          as: 'instructions',
+          attributes: ['stepNumber', 'text'],
+          order: [['stepNumber', 'ASC']]
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit)
     });
-    res.json(transformResponse(recipes));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.getRecipeById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const recipe = await recipeService.getRecipeById(id);
-    res.json(transformResponse(recipe));
-  } catch (error) {
-    res.status(404).json({ message: error.message });
-  }
-};
-
-exports.createRecipe = async (req, res) => {
-  try {
-    const recipe = await recipeService.createRecipe(req.body, req.user._id);
-    res.status(201).json(transformResponse(recipe));
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-exports.updateRecipe = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const recipe = await recipeService.updateRecipe(id, req.body);
-    res.json(transformResponse(recipe));
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-exports.deleteRecipe = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await recipeService.deleteRecipe(id);
-    res.json({ message: 'Recipe deleted successfully' });
-  } catch (error) {
-    res.status(404).json({ message: error.message });
-  }
-};
-
-exports.findRecipesByIngredients = async (req, res) => {
-  try {
-    const { ingredients, mealType } = req.body;
     
-    if (!ingredients || !ingredients.length) {
-      return res.status(400).json({ message: 'Please provide ingredients' });
+    return recipes;
+  }
+  
+  async getRecipeById(recipeId) {
+    const recipe = await db.Recipe.findByPk(recipeId, {
+      include: [
+        {
+          model: db.User,
+          as: 'creator',
+          attributes: ['username', 'email']
+        },
+        {
+          model: db.RecipeIngredient,
+          as: 'ingredients',
+          attributes: ['name', 'quantity', 'unit', 'sortOrder'],
+          order: [['sortOrder', 'ASC']]
+        },
+        {
+          model: db.Instruction,
+          as: 'instructions',
+          attributes: ['stepNumber', 'text'],
+          order: [['stepNumber', 'ASC']]
+        }
+      ]
+    });
+    
+    if (!recipe) {
+      throw new Error('Recipe not found');
     }
     
-    const recipes = await recipeService.findRecipesByIngredients(ingredients, mealType);
-    res.json(transformResponse(recipes));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.adjustServingSize = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { servings } = req.body;
+    await recipe.increment('views');
     
-    if (!servings || servings < 1) {
-      return res.status(400).json({ message: 'Please provide valid servings' });
+    return recipe;
+  }
+  
+  async createRecipe(recipeData, userId, imageFile = null) {
+    const {
+      title,
+      description,
+      mealType,
+      prepTime,
+      cookTime,
+      servings,
+      difficulty,
+      isFilipino,
+      ingredients,
+      instructions
+    } = recipeData;
+    
+    // Handle image upload
+    let imageUrl = null;
+    if (imageFile) {
+      imageUrl = `/uploads/recipes/${imageFile.filename}`;
     }
     
-    const adjustedRecipe = await recipeService.adjustServings(id, servings);
-    res.json(transformResponse(adjustedRecipe));
-  } catch (error) {
-    res.status(400).json({ message: error.message });
+    // Create recipe
+    const recipe = await db.Recipe.create({
+      title,
+      description,
+      mealType,
+      prepTime: prepTime || 0,
+      cookTime: cookTime || 0,
+      servings: servings || 4,
+      image: imageUrl,
+      difficulty,
+      isFilipino: isFilipino !== undefined ? isFilipino : true,
+      createdBy: userId,
+      views: 0
+    });
+    
+    // Add ingredients
+    if (ingredients && ingredients.length) {
+      let parsedIngredients = ingredients;
+      if (typeof ingredients === 'string') {
+        try {
+          parsedIngredients = JSON.parse(ingredients);
+        } catch (e) {
+          parsedIngredients = [];
+        }
+      }
+      
+      const recipeIngredients = parsedIngredients.map((ing, index) => ({
+        recipeId: recipe.id,
+        name: ing.name,
+        quantity: ing.quantity || '',
+        unit: ing.unit || '',
+        sortOrder: index
+      }));
+      await db.RecipeIngredient.bulkCreate(recipeIngredients);
+    }
+    
+    // Add instructions
+    if (instructions && instructions.length) {
+      let parsedInstructions = instructions;
+      if (typeof instructions === 'string') {
+        try {
+          parsedInstructions = JSON.parse(instructions);
+        } catch (e) {
+          parsedInstructions = [];
+        }
+      }
+      
+      const recipeInstructions = parsedInstructions.map((inst, index) => ({
+        recipeId: recipe.id,
+        stepNumber: inst.step || index + 1,
+        text: inst.text || inst.description
+      }));
+      await db.Instruction.bulkCreate(recipeInstructions);
+    }
+    
+    return await this.getRecipeById(recipe.id);
   }
-};
+  
+  async updateRecipe(recipeId, recipeData, imageFile = null) {
+    const recipe = await db.Recipe.findByPk(recipeId);
+    
+    if (!recipe) {
+      throw new Error('Recipe not found');
+    }
+    
+    // Handle image upload
+    let imageUrl = recipe.image;
+    if (imageFile) {
+      // Delete old image if exists
+      if (recipe.image) {
+        const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+      imageUrl = `/uploads/recipes/${imageFile.filename}`;
+    }
+    
+    // Update recipe
+    await recipe.update({
+      title: recipeData.title,
+      description: recipeData.description,
+      mealType: recipeData.mealType,
+      prepTime: recipeData.prepTime,
+      cookTime: recipeData.cookTime,
+      servings: recipeData.servings,
+      image: imageUrl,
+      difficulty: recipeData.difficulty,
+      isFilipino: recipeData.isFilipino
+    });
+    
+    // Update ingredients if provided
+    if (recipeData.ingredients) {
+      await db.RecipeIngredient.destroy({ where: { recipeId } });
+      
+      let parsedIngredients = recipeData.ingredients;
+      if (typeof recipeData.ingredients === 'string') {
+        try {
+          parsedIngredients = JSON.parse(recipeData.ingredients);
+        } catch (e) {
+          parsedIngredients = [];
+        }
+      }
+      
+      const recipeIngredients = parsedIngredients.map((ing, index) => ({
+        recipeId: recipe.id,
+        name: ing.name,
+        quantity: ing.quantity || '',
+        unit: ing.unit || '',
+        sortOrder: index
+      }));
+      await db.RecipeIngredient.bulkCreate(recipeIngredients);
+    }
+    
+    // Update instructions if provided
+    if (recipeData.instructions) {
+      await db.Instruction.destroy({ where: { recipeId } });
+      
+      let parsedInstructions = recipeData.instructions;
+      if (typeof recipeData.instructions === 'string') {
+        try {
+          parsedInstructions = JSON.parse(recipeData.instructions);
+        } catch (e) {
+          parsedInstructions = [];
+        }
+      }
+      
+      const recipeInstructions = parsedInstructions.map((inst, index) => ({
+        recipeId: recipe.id,
+        stepNumber: inst.step || index + 1,
+        text: inst.text || inst.description
+      }));
+      await db.Instruction.bulkCreate(recipeInstructions);
+    }
+    
+    return await this.getRecipeById(recipeId);
+  }
+  
+  async deleteRecipe(recipeId) {
+    const recipe = await db.Recipe.findByPk(recipeId);
+    
+    if (!recipe) {
+      throw new Error('Recipe not found');
+    }
+    
+    // Delete image if exists
+    if (recipe.image) {
+      const imagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+    
+    await recipe.destroy();
+    return true;
+  }
+  
+  async findRecipesByIngredients(ingredientsList, mealType = null) {
+    const searchIngredients = ingredientsList.map(ing => ing.toLowerCase());
+    
+    const recipes = await db.Recipe.findAll({
+      include: [
+        {
+          model: db.RecipeIngredient,
+          as: 'ingredients',
+          required: true
+        },
+        {
+          model: db.User,
+          as: 'creator',
+          attributes: ['username', 'email']
+        }
+      ],
+      where: mealType ? { mealType } : {},
+      order: [['views', 'DESC']]
+    });
+    
+    const recipesWithMatch = recipes.map(recipe => {
+      const recipeIngredients = recipe.ingredients || [];
+      const recipeIngredientNames = recipeIngredients.map(ri => ri.name.toLowerCase());
+      
+      let matchCount = 0;
+      const matchedIngredients = [];
+      
+      searchIngredients.forEach(searchIng => {
+        const matched = recipeIngredientNames.some(recipeIng => 
+          recipeIng.includes(searchIng) || searchIng.includes(recipeIng)
+        );
+        if (matched) {
+          matchCount++;
+          matchedIngredients.push(searchIng);
+        }
+      });
+      
+      const matchPercentage = recipeIngredients.length > 0 
+        ? (matchCount / recipeIngredients.length) * 100 
+        : 0;
+      
+      return {
+        ...recipe.toJSON(),
+        matchCount,
+        matchPercentage: Math.round(matchPercentage),
+        matchedIngredients
+      };
+    });
+    
+    return recipesWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
+  }
+  
+  async adjustServings(recipeId, newServings) {
+    const recipe = await this.getRecipeById(recipeId);
+    
+    if (!recipe) {
+      throw new Error('Recipe not found');
+    }
+    
+    const ratio = newServings / recipe.servings;
+    
+    const adjustedIngredients = recipe.ingredients.map(ing => {
+      if (ing.quantity && !isNaN(parseFloat(ing.quantity))) {
+        const newQuantity = (parseFloat(ing.quantity) * ratio).toFixed(1);
+        return {
+          ...ing.toJSON(),
+          quantity: newQuantity
+        };
+      }
+      return ing;
+    });
+    
+    return {
+      ...recipe.toJSON(),
+      servings: newServings,
+      ingredients: adjustedIngredients
+    };
+  }
+  
+  async getSavedRecipes(userId) {
+    const savedRecipes = await db.UserSavedRecipe.findAll({
+      where: { userId },
+      include: [{
+        model: db.Recipe,
+        as: 'recipe',
+        include: [
+          {
+            model: db.User,
+            as: 'creator',
+            attributes: ['username', 'email']
+          },
+          {
+            model: db.RecipeIngredient,
+            as: 'ingredients',
+            attributes: ['name', 'quantity', 'unit']
+          }
+        ]
+      }],
+      order: [['savedAt', 'DESC']]
+    });
+    
+    return savedRecipes.map(sr => sr.recipe);
+  }
+}
 
-exports.getSavedRecipes = async (req, res) => {
-  try {
-    const recipes = await recipeService.getSavedRecipes(req.user._id);
-    res.json(transformResponse(recipes));
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+module.exports = new RecipeService();

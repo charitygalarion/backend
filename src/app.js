@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 require('express-async-errors');
 require('dotenv').config();
 
@@ -8,14 +9,17 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin:true,
-  credentials: true, // Important for cookies
+  origin: true,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Add cookie parser
+app.use(cookieParser());
+
+// Serve static files (uploaded images)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes - Modular Architecture
 const authRoutes = require('./modules/auth/auth.routes');

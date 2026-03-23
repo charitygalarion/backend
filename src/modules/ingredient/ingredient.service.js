@@ -1,5 +1,7 @@
 const db = require('../../database/models');
 const { Op } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
 
 class IngredientService {
   async getAllIngredients(filters = {}) {
@@ -34,13 +36,19 @@ class IngredientService {
     return ingredient;
   }
   
-  async createIngredient(ingredientData) {
-    const { name, filipinoName, category, commonQuantity, unit, image, seasonal, description } = ingredientData;
+  async createIngredient(ingredientData, imageFile = null) {
+    const { name, filipinoName, category, commonQuantity, unit, seasonal, description } = ingredientData;
     
     // Check if ingredient already exists
     const existing = await db.Ingredient.findOne({ where: { name } });
     if (existing) {
       throw new Error('Ingredient already exists');
+    }
+    
+    // Handle image upload
+    let imageUrl = null;
+    if (imageFile) {
+      imageUrl = `/uploads/ingredients/${imageFile.filename}`;
     }
     
     const ingredient = await db.Ingredient.create({
@@ -49,22 +57,44 @@ class IngredientService {
       category,
       commonQuantity,
       unit,
-      image,
-      seasonal: seasonal || false,
+      image: imageUrl,
+      seasonal: seasonal === 'true' || seasonal === true || false,
       description
     });
     
     return ingredient;
   }
   
-  async updateIngredient(ingredientId, ingredientData) {
+  async updateIngredient(ingredientId, ingredientData, imageFile = null) {
     const ingredient = await db.Ingredient.findByPk(ingredientId);
     
     if (!ingredient) {
       throw new Error('Ingredient not found');
     }
     
-    await ingredient.update(ingredientData);
+    // Handle image upload
+    let imageUrl = ingredient.image;
+    if (imageFile) {
+      // Delete old image if exists
+      if (ingredient.image) {
+        const oldImagePath = path.join(__dirname, '../../../uploads/ingredients', path.basename(ingredient.image));
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+      imageUrl = `/uploads/ingredients/${imageFile.filename}`;
+    }
+    
+    await ingredient.update({
+      name: ingredientData.name || ingredient.name,
+      filipinoName: ingredientData.filipinoName !== undefined ? ingredientData.filipinoName : ingredient.filipinoName,
+      category: ingredientData.category || ingredient.category,
+      commonQuantity: ingredientData.commonQuantity !== undefined ? ingredientData.commonQuantity : ingredient.commonQuantity,
+      unit: ingredientData.unit !== undefined ? ingredientData.unit : ingredient.unit,
+      image: imageUrl,
+      seasonal: ingredientData.seasonal !== undefined ? ingredientData.seasonal : ingredient.seasonal,
+      description: ingredientData.description !== undefined ? ingredientData.description : ingredient.description
+    });
     
     return ingredient;
   }
@@ -85,6 +115,14 @@ class IngredientService {
       throw new Error(`Cannot delete ingredient. It is used in ${usageCount} recipes.`);
     }
     
+    // Delete image if exists
+    if (ingredient.image) {
+      const imagePath = path.join(__dirname, '../../../uploads/ingredients', path.basename(ingredient.image));
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+    
     await ingredient.destroy();
     return true;
   }
@@ -94,7 +132,6 @@ class IngredientService {
       order: [['category', 'ASC'], ['name', 'ASC']]
     });
     
-    // Group by category
     const grouped = {};
     ingredients.forEach(ing => {
       const category = ing.category || 'Other';
@@ -108,7 +145,6 @@ class IngredientService {
   }
   
   async getPopularIngredients(limit = 10) {
-    // Find ingredients most used in recipes
     const popular = await db.RecipeIngredient.findAll({
       attributes: [
         'ingredientId',

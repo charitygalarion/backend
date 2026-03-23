@@ -28,7 +28,7 @@ exports.getRecipeById = async (req, res) => {
 
 exports.createRecipe = async (req, res) => {
   try {
-    const recipe = await recipeService.createRecipe(req.body, req.user._id);
+    const recipe = await recipeService.createRecipe(req.body, req.user._id, req.file);
     res.status(201).json(transformResponse(recipe));
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -38,7 +38,7 @@ exports.createRecipe = async (req, res) => {
 exports.updateRecipe = async (req, res) => {
   try {
     const { id } = req.params;
-    const recipe = await recipeService.updateRecipe(id, req.body);
+    const recipe = await recipeService.updateRecipe(id, req.body, req.file);
     res.json(transformResponse(recipe));
   } catch (error) {
     res.status(400).json({ message: error.message });
