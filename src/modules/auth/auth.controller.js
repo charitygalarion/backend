@@ -2,6 +2,19 @@ const authService = require('./auth.service');
 const { generateToken } = require('../../utils/token.util');
 const { transformResponse } = require('../../utils/response.util');
 
+// Helper to set cookie
+const setTokenCookie = (res, token) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isProduction, // HTTPS only in production
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    path: '/'
+  });
+};
+
 exports.register = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName } = req.body;
@@ -15,11 +28,13 @@ exports.register = async (req, res) => {
     });
     
     const token = generateToken(user.id);
+    setTokenCookie(res, token);
+    
     const userData = transformResponse(user);
     
     res.status(201).json({
       ...userData,
-      token
+      token // Also return token for mobile apps
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -32,11 +47,13 @@ exports.login = async (req, res) => {
     
     const user = await authService.login(email, password);
     const token = generateToken(user.id);
+    setTokenCookie(res, token);
+    
     const userData = transformResponse(user);
     
     res.json({
       ...userData,
-      token
+      token // Also return token for mobile apps
     });
   } catch (error) {
     res.status(401).json({ message: error.message });
@@ -44,6 +61,14 @@ exports.login = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
+  // Clear the cookie
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+  
   res.json({ message: 'Logged out successfully' });
 };
 
@@ -56,8 +81,6 @@ exports.forgotPassword = async (req, res) => {
     if (result) {
       const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${result.resetToken}`;
       console.log(`Password reset link: ${resetUrl}`);
-      
-      // In production, send email here
       
       return res.json({
         message: 'If an account exists with this email, a password reset link has been sent.',

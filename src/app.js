@@ -1,21 +1,28 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('express-async-errors');
 require('dotenv').config();
 
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin:true,
+  credentials: true, // Important for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Add cookie parser
 
 // Routes - Modular Architecture
 const authRoutes = require('./modules/auth/auth.routes');
 const userRoutes = require('./modules/user/user.routes');
-//const recipeRoutes = require('./modules/recipe/recipe.routes');
-//const ingredientRoutes = require('./modules/ingredient/ingredient.routes');
-//const adminRoutes = require('./modules/admin/admin.routes');
+const recipeRoutes = require('./modules/recipe/recipe.routes');
+const ingredientRoutes = require('./modules/ingredient/ingredient.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 // API endpoints
 app.use('/api/auth', authRoutes);
