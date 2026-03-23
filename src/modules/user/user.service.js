@@ -32,8 +32,11 @@ class UserService {
     };
   }
   
-  async updateProfile(userId, updateData, imageFile = null) {
+ async updateProfile(userId, updateData, imageFile = null) {
+  try {
     const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = updateData;
+    
+    console.log('UserService.updateProfile called with:', { userId, updateData, hasImage: !!imageFile });
     
     const user = await db.User.findByPk(userId);
     
@@ -44,6 +47,7 @@ class UserService {
     // Handle profile image upload
     let avatarUrl = user.avatar;
     if (imageFile) {
+      console.log('Processing image file:', imageFile.filename);
       // Delete old avatar if exists
       if (user.avatar) {
         const oldAvatarPath = path.join(__dirname, '../../../uploads/profiles', path.basename(user.avatar));
@@ -51,7 +55,6 @@ class UserService {
           fs.unlinkSync(oldAvatarPath);
         }
       }
-      
       // Set new avatar URL
       avatarUrl = `/uploads/profiles/${imageFile.filename}`;
     }
@@ -74,40 +77,24 @@ class UserService {
       }
     }
     
-    // Update user
-    await user.update({
-      username: username || user.username,
-      email: email || user.email,
-      firstName: firstName !== undefined ? firstName : user.firstName,
-      lastName: lastName !== undefined ? lastName : user.lastName,
-      avatar: avatarUrl
-    });
+    // Build update object
+    const updateFields = {};
+    if (username !== undefined) updateFields.username = username;
+    if (email !== undefined) updateFields.email = email;
+    if (firstName !== undefined) updateFields.firstName = firstName;
+    if (lastName !== undefined) updateFields.lastName = lastName;
+    if (avatarUrl) updateFields.avatar = avatarUrl;
     
-    // Update preferences if provided
-    if (mealTypes || dietaryRestrictions) {
-      await db.UserPreference.destroy({ where: { userId } });
-      
-      if (mealTypes && mealTypes.length) {
-        const mealPrefs = mealTypes.map(type => ({
-          userId,
-          preferenceType: 'meal_type',
-          value: type
-        }));
-        await db.UserPreference.bulkCreate(mealPrefs);
-      }
-      
-      if (dietaryRestrictions && dietaryRestrictions.length) {
-        const dietPrefs = dietaryRestrictions.map(restriction => ({
-          userId,
-          preferenceType: 'dietary_restriction',
-          value: restriction
-        }));
-        await db.UserPreference.bulkCreate(dietPrefs);
-      }
-    }
+    console.log('Updating user with fields:', updateFields);
+    
+    await user.update(updateFields);
     
     return await this.getProfile(userId);
+  } catch (error) {
+    console.error('Error in updateProfile service:', error);
+    throw error;
   }
+}
   
   async toggleSaveRecipe(userId, recipeId) {
     const recipe = await db.Recipe.findByPk(recipeId);

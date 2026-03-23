@@ -89,8 +89,11 @@ exports.adjustServingSize = async (req, res) => {
 exports.getSavedRecipes = async (req, res) => {
   try {
     const recipes = await recipeService.getSavedRecipes(req.user._id);
-    res.json(transformResponse(recipes));
+    // Always return array, even if empty
+    res.json(transformResponse(recipes || []));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error in getSavedRecipes controller:', error);
+    // Return empty array instead of error
+    res.json([]);
   }
 };

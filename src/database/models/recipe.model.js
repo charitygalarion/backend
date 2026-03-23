@@ -14,16 +14,44 @@ module.exports = (sequelize, DataTypes) => {
     },
     mealType: {
       type: DataTypes.ENUM('Breakfast', 'Lunch', 'Dinner', 'Snack'),
-      field: 'meal_type'
+      field: 'meal_type'  // ✅ Map to database column
+    },
+    prepTime: {
+      type: DataTypes.INTEGER,
+      field: 'prep_time'
+    },
+    cookTime: {
+      type: DataTypes.INTEGER,
+      field: 'cook_time'
+    },
+    servings: {
+      type: DataTypes.INTEGER,
+      defaultValue: 4
+    },
+    image: {
+      type: DataTypes.STRING(500)
     },
     difficulty: {
       type: DataTypes.ENUM('Easy', 'Medium', 'Hard')
+    },
+    isFilipino: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      field: 'is_filipino'
+    },
+    views: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    createdBy: {
+      type: DataTypes.INTEGER,
+      field: 'created_by'
     }
   }, {
     tableName: 'recipes',
     timestamps: true,
     underscored: true,
-    createdAt: 'created_at',
+    createdAt: 'created_at',  // ✅ Map to database column
     updatedAt: 'updated_at'
   });
 
@@ -33,7 +61,6 @@ module.exports = (sequelize, DataTypes) => {
       as: 'creator'
     });
     
-    // Add these associations
     Recipe.hasMany(db.RecipeIngredient, {
       foreignKey: 'recipe_id',
       as: 'ingredients'
@@ -42,13 +69,6 @@ module.exports = (sequelize, DataTypes) => {
     Recipe.hasMany(db.Instruction, {
       foreignKey: 'recipe_id',
       as: 'instructions'
-    });
-    
-    Recipe.belongsToMany(db.User, {
-      through: db.UserSavedRecipe,
-      foreignKey: 'recipe_id',
-      otherKey: 'user_id',
-      as: 'savedByUsers'
     });
   };
 

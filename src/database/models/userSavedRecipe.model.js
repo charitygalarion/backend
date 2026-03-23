@@ -20,5 +20,16 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false
   });
 
+  UserSavedRecipe.associate = (db) => {
+    UserSavedRecipe.belongsTo(db.User, {
+      foreignKey: 'user_id',
+      as: 'user'
+    });
+    UserSavedRecipe.belongsTo(db.Recipe, {
+      foreignKey: 'recipe_id',
+      as: 'recipe'
+    });
+  };
+
   return UserSavedRecipe;
 };

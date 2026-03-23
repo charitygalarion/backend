@@ -7,7 +7,6 @@ class AdminService {
     const totalRecipes = await db.Recipe.count();
     const totalIngredients = await db.Ingredient.count();
     
-    // Users active today
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date();
@@ -15,43 +14,35 @@ class AdminService {
     
     const usersActiveToday = await db.User.count({
       where: {
-        lastActive: {
+        last_active: {
           [Op.between]: [startOfToday, endOfToday]
         }
       }
     });
     
-    // Total recipes saved
     const totalRecipesSaved = await db.UserSavedRecipe.count({
       distinct: true,
-      col: 'recipeId'
+      col: 'recipe_id'
     });
     
-    // Most viewed recipes
     const mostViewedRecipes = await db.Recipe.findAll({
-      attributes: ['id', 'title', 'views', 'mealType', 'image'],
+      attributes: ['id', 'title', 'views', 'meal_type', 'image'],
       order: [['views', 'DESC']],
       limit: 10
     });
     
-    // Recent users (last 7 days) - use Sequelize's createdAt
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
     const newUsersLast7Days = await db.User.count({
       where: {
-        createdAt: {
-          [Op.gte]: sevenDaysAgo
-        }
+        created_at: { [Op.gte]: sevenDaysAgo }
       }
     });
     
-    // Recent recipes (last 7 days)
     const newRecipesLast7Days = await db.Recipe.count({
       where: {
-        createdAt: {
-          [Op.gte]: sevenDaysAgo
-        }
+        created_at: { [Op.gte]: sevenDaysAgo }
       }
     });
     
@@ -67,7 +58,7 @@ class AdminService {
         _id: r.id,
         title: r.title,
         views: r.views,
-        mealType: r.mealType,
+        mealType: r.meal_type,
         image: r.image
       }))
     };
@@ -82,9 +73,8 @@ class AdminService {
       throw new Error('User not found');
     }
     
-    // Get saved recipes
     const savedRecipes = await db.UserSavedRecipe.findAll({
-      where: { userId },
+      where: { user_id: userId },
       include: [{
         model: db.Recipe,
         as: 'recipe',
@@ -103,21 +93,19 @@ class AdminService {
       }]
     });
     
-    // Get user preferences
     const preferences = await db.UserPreference.findAll({ 
-      where: { userId } 
+      where: { user_id: userId } 
     });
     
     return {
       ...user.toJSON(),
       savedRecipes: savedRecipes.map(sr => sr.recipe),
-      mealTypes: preferences.filter(p => p.preferenceType === 'meal_type').map(p => p.value),
-      dietaryRestrictions: preferences.filter(p => p.preferenceType === 'dietary_restriction').map(p => p.value)
+      mealTypes: preferences.filter(p => p.preference_type === 'meal_type').map(p => p.value),
+      dietaryRestrictions: preferences.filter(p => p.preference_type === 'dietary_restriction').map(p => p.value)
     };
   }
 
   async getDashboardData() {
-    // Get weekly stats
     const weeklyData = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
@@ -129,17 +117,13 @@ class AdminService {
       
       const newUsers = await db.User.count({
         where: {
-          createdAt: {
-            [Op.between]: [date, nextDate]
-          }
+          created_at: { [Op.between]: [date, nextDate] }
         }
       });
       
       const newRecipes = await db.Recipe.count({
         where: {
-          createdAt: {
-            [Op.between]: [date, nextDate]
-          }
+          created_at: { [Op.between]: [date, nextDate] }
         }
       });
       
@@ -150,14 +134,13 @@ class AdminService {
       });
     }
     
-    // Get top contributors
     const topContributors = await db.Recipe.findAll({
       attributes: [
-        'createdBy',
-        [db.Sequelize.fn('COUNT', db.Sequelize.col('createdBy')), 'recipeCount']
+        'created_by',
+        [db.Sequelize.fn('COUNT', db.Sequelize.col('created_by')), 'recipeCount']
       ],
-      group: ['createdBy'],
-      order: [[db.Sequelize.fn('COUNT', db.Sequelize.col('createdBy')), 'DESC']],
+      group: ['created_by'],
+      order: [[db.Sequelize.fn('COUNT', db.Sequelize.col('created_by')), 'DESC']],
       limit: 5,
       include: [{
         model: db.User,

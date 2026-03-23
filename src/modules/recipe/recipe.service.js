@@ -8,7 +8,7 @@ class RecipeService {
     const { mealType, difficulty, search, limit = 20 } = filters;
     const where = {};
     
-    if (mealType) where.mealType = mealType;
+    if (mealType) where.meal_type = mealType;
     if (difficulty) where.difficulty = difficulty;
     
     if (search) {
@@ -29,17 +29,17 @@ class RecipeService {
         {
           model: db.RecipeIngredient,
           as: 'ingredients',
-          attributes: ['name', 'quantity', 'unit', 'sortOrder'],
-          order: [['sortOrder', 'ASC']]
+          attributes: ['name', 'quantity', 'unit', 'sort_order'],
+          order: [['sort_order', 'ASC']]
         },
         {
           model: db.Instruction,
           as: 'instructions',
-          attributes: ['stepNumber', 'text'],
-          order: [['stepNumber', 'ASC']]
+          attributes: ['step_number', 'text'],
+          order: [['step_number', 'ASC']]
         }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       limit: parseInt(limit)
     });
     
@@ -57,14 +57,14 @@ class RecipeService {
         {
           model: db.RecipeIngredient,
           as: 'ingredients',
-          attributes: ['name', 'quantity', 'unit', 'sortOrder'],
-          order: [['sortOrder', 'ASC']]
+          attributes: ['name', 'quantity', 'unit', 'sort_order'],
+          order: [['sort_order', 'ASC']]
         },
         {
           model: db.Instruction,
           as: 'instructions',
-          attributes: ['stepNumber', 'text'],
-          order: [['stepNumber', 'ASC']]
+          attributes: ['step_number', 'text'],
+          order: [['step_number', 'ASC']]
         }
       ]
     });
@@ -102,14 +102,14 @@ class RecipeService {
     const recipe = await db.Recipe.create({
       title,
       description,
-      mealType,
-      prepTime: prepTime || 0,
-      cookTime: cookTime || 0,
+      meal_type: mealType,
+      prep_time: prepTime || 0,
+      cook_time: cookTime || 0,
       servings: servings || 4,
       image: imageUrl,
       difficulty,
-      isFilipino: isFilipino !== undefined ? isFilipino : true,
-      createdBy: userId,
+      is_filipino: isFilipino !== undefined ? isFilipino : true,
+      created_by: userId,
       views: 0
     });
     
@@ -125,11 +125,11 @@ class RecipeService {
       }
       
       const recipeIngredients = parsedIngredients.map((ing, index) => ({
-        recipeId: recipe.id,
+        recipe_id: recipe.id,
         name: ing.name,
         quantity: ing.quantity || '',
         unit: ing.unit || '',
-        sortOrder: index
+        sort_order: index
       }));
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
     }
@@ -146,8 +146,8 @@ class RecipeService {
       }
       
       const recipeInstructions = parsedInstructions.map((inst, index) => ({
-        recipeId: recipe.id,
-        stepNumber: inst.step || index + 1,
+        recipe_id: recipe.id,
+        step_number: inst.step || index + 1,
         text: inst.text || inst.description
       }));
       await db.Instruction.bulkCreate(recipeInstructions);
@@ -166,7 +166,6 @@ class RecipeService {
     // Handle image upload
     let imageUrl = recipe.image;
     if (imageFile) {
-      // Delete old image if exists
       if (recipe.image) {
         const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
         if (fs.existsSync(oldImagePath)) {
@@ -180,18 +179,18 @@ class RecipeService {
     await recipe.update({
       title: recipeData.title,
       description: recipeData.description,
-      mealType: recipeData.mealType,
-      prepTime: recipeData.prepTime,
-      cookTime: recipeData.cookTime,
+      meal_type: recipeData.mealType,
+      prep_time: recipeData.prepTime,
+      cook_time: recipeData.cookTime,
       servings: recipeData.servings,
       image: imageUrl,
       difficulty: recipeData.difficulty,
-      isFilipino: recipeData.isFilipino
+      is_filipino: recipeData.isFilipino
     });
     
-    // Update ingredients if provided
+    // Update ingredients
     if (recipeData.ingredients) {
-      await db.RecipeIngredient.destroy({ where: { recipeId } });
+      await db.RecipeIngredient.destroy({ where: { recipe_id: recipeId } });
       
       let parsedIngredients = recipeData.ingredients;
       if (typeof recipeData.ingredients === 'string') {
@@ -203,18 +202,18 @@ class RecipeService {
       }
       
       const recipeIngredients = parsedIngredients.map((ing, index) => ({
-        recipeId: recipe.id,
+        recipe_id: recipe.id,
         name: ing.name,
         quantity: ing.quantity || '',
         unit: ing.unit || '',
-        sortOrder: index
+        sort_order: index
       }));
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
     }
     
-    // Update instructions if provided
+    // Update instructions
     if (recipeData.instructions) {
-      await db.Instruction.destroy({ where: { recipeId } });
+      await db.Instruction.destroy({ where: { recipe_id: recipeId } });
       
       let parsedInstructions = recipeData.instructions;
       if (typeof recipeData.instructions === 'string') {
@@ -226,8 +225,8 @@ class RecipeService {
       }
       
       const recipeInstructions = parsedInstructions.map((inst, index) => ({
-        recipeId: recipe.id,
-        stepNumber: inst.step || index + 1,
+        recipe_id: recipe.id,
+        step_number: inst.step || index + 1,
         text: inst.text || inst.description
       }));
       await db.Instruction.bulkCreate(recipeInstructions);
@@ -243,7 +242,6 @@ class RecipeService {
       throw new Error('Recipe not found');
     }
     
-    // Delete image if exists
     if (recipe.image) {
       const imagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
       if (fs.existsSync(imagePath)) {
@@ -258,7 +256,11 @@ class RecipeService {
   async findRecipesByIngredients(ingredientsList, mealType = null) {
     const searchIngredients = ingredientsList.map(ing => ing.toLowerCase());
     
+    const where = {};
+    if (mealType) where.meal_type = mealType;
+    
     const recipes = await db.Recipe.findAll({
+      where,
       include: [
         {
           model: db.RecipeIngredient,
@@ -271,7 +273,6 @@ class RecipeService {
           attributes: ['username', 'email']
         }
       ],
-      where: mealType ? { mealType } : {},
       order: [['views', 'DESC']]
     });
     
@@ -335,11 +336,13 @@ class RecipeService {
   }
   
   async getSavedRecipes(userId) {
+  try {
     const savedRecipes = await db.UserSavedRecipe.findAll({
-      where: { userId },
+      where: { user_id: userId },
       include: [{
         model: db.Recipe,
         as: 'recipe',
+        required: false,  // ✅ Make it optional so it doesn't fail if no recipes
         include: [
           {
             model: db.User,
@@ -353,11 +356,20 @@ class RecipeService {
           }
         ]
       }],
-      order: [['savedAt', 'DESC']]
+      order: [['saved_at', 'DESC']]
     });
     
-    return savedRecipes.map(sr => sr.recipe);
+    // Filter out null recipes
+    const validRecipes = savedRecipes
+      .map(sr => sr.recipe)
+      .filter(recipe => recipe !== null);
+    
+    return validRecipes;
+  } catch (error) {
+    console.error('Error in getSavedRecipes:', error);
+    return [];  // ✅ Return empty array on error
   }
+}
 }
 
 module.exports = new RecipeService();

@@ -12,6 +12,9 @@ router.route('/profile')
   .get(userController.getProfile)
   .put(uploadProfileImage, userController.updateProfile);
 
+// ✅ Avatar upload - only authentication needed, not admin
+router.post('/upload/avatar', uploadProfileImage, userController.uploadAvatar);
+
 // Saved recipes routes
 router.route('/saved')
   .get(userController.getSavedRecipes);
@@ -19,7 +22,7 @@ router.route('/saved')
 router.route('/saved/:recipeId')
   .post(userController.toggleSaveRecipe);
 
-// Admin routes (require admin role)
+// Admin routes (require admin role) - only these need admin
 router.use(admin);
 
 router.route('/')
@@ -27,8 +30,5 @@ router.route('/')
 
 router.route('/:id')
   .delete(userController.deleteUser);
-
-  // Add this route
-router.post('/upload/avatar', protect, uploadProfileImage, userController.uploadAvatar);
 
 module.exports = router;
