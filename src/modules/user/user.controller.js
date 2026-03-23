@@ -93,3 +93,20 @@ exports.deleteUser = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
+
+exports.uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image uploaded' });
+    }
+    
+    const avatarUrl = `/uploads/profiles/${req.file.filename}`;
+    
+    // Update user's avatar
+    const user = await userService.updateProfile(req.user._id, {}, req.file);
+    
+    res.json({ url: avatarUrl, user: transformResponse(user) });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

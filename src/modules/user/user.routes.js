@@ -28,4 +28,7 @@ router.route('/')
 router.route('/:id')
   .delete(userController.deleteUser);
 
+  // Add this route
+router.post('/upload/avatar', protect, uploadProfileImage, userController.uploadAvatar);
+
 module.exports = router;
