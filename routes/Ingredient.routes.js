@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Ingredient = require('../models/Ingredient');
-const { protect } = require('../middleware/Auth.middleware');
+const { protect, admin } = require('../middleware/Auth.middleware');
 
 // Get all ingredients
 router.get('/', async (req, res) => {
@@ -28,7 +28,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create ingredient (protected)
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, admin, async (req, res) => {
   try {
     const ingredient = await Ingredient.create(req.body);
     res.status(201).json(ingredient);
@@ -38,7 +38,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update ingredient (protected)
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, admin, async (req, res) => {
   try {
     const ingredient = await Ingredient.findByIdAndUpdate(
       req.params.id,
@@ -55,7 +55,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Delete ingredient (protected)
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, admin, async (req, res) => {
   try {
     const ingredient = await Ingredient.findByIdAndDelete(req.params.id);
     if (!ingredient) {

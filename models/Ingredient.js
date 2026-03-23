@@ -5,22 +5,34 @@ const ingredientSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    trim: true
   },
-  filipinoName: String,
+  filipinoName: {
+    type: String,
+    trim: true
+  },
   category: {
     type: String,
     enum: ['Vegetable', 'Fruit', 'Meat', 'Seafood', 'Spice', 'Dairy', 'Grain', 'Other']
   },
-  commonQuantity: String,
-  unit: String,
-  image: String,
-  seasonal: Boolean,
-  description: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
+  commonQuantity: {
+    type: String
+  },
+  unit: {
+    type: String
+  },
+  image: {
+    type: String
+  },
+  seasonal: {
+    type: Boolean
+  },
+  description: {
+    type: String
   }
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Ingredient', ingredientSchema);

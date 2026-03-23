@@ -6,14 +6,22 @@ const {
   getRecipeById, 
   findRecipesByIngredients,
   adjustServingSize,
-  getSavedRecipes
+  getSavedRecipes,
+  createRecipe,
+  updateRecipe,
+  deleteRecipe
 } = require('../controllers/Recipe.controller');
-const { protect } = require('../middleware/Auth.middleware');
+const { protect, admin } = require('../middleware/Auth.middleware');
 
 router.get('/', getRecipes);
 router.get('/saved', protect, getSavedRecipes);
 router.get('/:id', getRecipeById);
 router.post('/find-by-ingredients', findRecipesByIngredients);
 router.put('/:id/servings', protect, adjustServingSize);
+
+// Admin routes
+router.post('/', protect, admin, createRecipe);
+router.put('/:id', protect, admin, updateRecipe);
+router.delete('/:id', protect, admin, deleteRecipe);
 
 module.exports = router;

@@ -1,0 +1,39 @@
+{
+  "development": {
+    "username": "root",
+    "password": "",
+    "database": "freshrecipe",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": false,
+    "define": {
+      "timestamps": true,
+      "underscored": true
+    },
+    "pool": {
+      "max": 5,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
+  },
+  "test": {
+    "username": "root",
+    "password": "",
+    "database": "freshrecipe_test",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": false
+  },
+  "production": {
+    "username": "root",
+    "password": "",
+    "database": "freshrecipe",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": false
+  }
+}

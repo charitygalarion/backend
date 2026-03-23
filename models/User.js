@@ -7,30 +7,37 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    trim: true
+    trim: true,
+    minlength: 3,
+    maxlength: 30
   },
   email: {
     type: String,
     required: true,
     unique: true,
+    trim: true,
     lowercase: true
   },
   password: {
     type: String,
     required: true
   },
-  profile: {
-    firstName: String,
-    lastName: String,
-    avatar: String,
-    preferences: {
-      mealTypes: [String],
-      dietaryRestrictions: [String]
-    }
+  firstName: {
+    type: String,
+    trim: true
   },
-  savedRecipes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Recipe'
+  lastName: {
+    type: String,
+    trim: true
+  },
+  avatar: {
+    type: String
+  },
+  mealTypes: [{
+    type: String
+  }],
+  dietaryRestrictions: [{
+    type: String
   }],
   role: {
     type: String,
@@ -41,29 +48,27 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
   lastActive: {
-    type: Date,
-    default: Date.now
+    type: Date
   },
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  savedRecipes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Recipe'
+  }]
+}, {
+  timestamps: true
 });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  if (!this.isModified('password')) {
+    return next();
   }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
 // Compare password method

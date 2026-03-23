@@ -14,7 +14,9 @@ exports.register = async (req, res) => {
     const { username, email, password } = req.body;
 
     // Check if user exists
-    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    const userExists = await User.findOne({ 
+      $or: [{ email }, { username }] 
+    });
     if (userExists) {
       return res.status(400).json({ 
         message: 'User already exists with this email or username' 
@@ -29,9 +31,10 @@ exports.register = async (req, res) => {
     });
 
     res.status(201).json({
-      _id: user._id,
+      id: user._id,
       username: user.username,
       email: user.email,
+      role: user.role,
       token: generateToken(user._id)
     });
   } catch (error) {
@@ -53,8 +56,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    // Update last active
+    user.lastActive = new Date();
+    await user.save();
+
     res.json({
-      _id: user._id,
+      id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
@@ -82,7 +89,7 @@ exports.forgotPassword = async (req, res) => {
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
+    user.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     
     await user.save();
     
@@ -111,7 +118,7 @@ exports.resetPassword = async (req, res) => {
     
     const user = await User.findOne({
       resetPasswordToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      resetPasswordExpires: { $gt: new Date() }
     });
     
     if (!user) {

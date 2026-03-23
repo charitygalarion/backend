@@ -4,37 +4,45 @@ const mongoose = require('mongoose');
 const recipeSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
-  description: String,
+  description: {
+    type: String
+  },
   mealType: {
     type: String,
-    enum: ['Breakfast', 'Lunch', 'Dinner', 'Snack'],
-    required: true
+    enum: ['Breakfast', 'Lunch', 'Dinner', 'Snack']
   },
   ingredients: [{
     name: String,
     quantity: String,
-    unit: String,
-    filipinoName: String
+    unit: String
   }],
   instructions: [{
     step: Number,
-    description: String,
-    image: String
+    text: String
   }],
-  prepTime: Number, // in minutes
-  cookTime: Number, // in minutes
+  prepTime: {
+    type: Number
+  },
+  cookTime: {
+    type: Number
+  },
   servings: {
     type: Number,
     default: 4
   },
-  image: String,
+  image: {
+    type: String
+  },
   difficulty: {
     type: String,
     enum: ['Easy', 'Medium', 'Hard']
   },
-  category: [String],
+  category: [{
+    type: String
+  }],
   isFilipino: {
     type: Boolean,
     default: true
@@ -47,25 +55,12 @@ const recipeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  savedByUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
+}, {
+  timestamps: true
 });
-
-// Method to adjust servings
-recipeSchema.methods.adjustServings = function(targetServings) {
-  const ratio = targetServings / this.servings;
-  const adjustedIngredients = this.ingredients.map(ing => ({
-    ...ing.toObject(),
-    quantity: parseFloat(ing.quantity) * ratio
-  }));
-  
-  return {
-    ...this.toObject(),
-    servings: targetServings,
-    ingredients: adjustedIngredients
-  };
-};
 
 module.exports = mongoose.model('Recipe', recipeSchema);
