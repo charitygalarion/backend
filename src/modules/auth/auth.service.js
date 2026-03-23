@@ -1,6 +1,7 @@
 const db = require('../../database/models');
 const { comparePassword } = require('../../utils/password.util');
 const crypto = require('crypto');
+const emailService = require('../../services/email.service'); // ✅ Add this line
 
 class AuthService {
   async register(userData) {
@@ -52,8 +53,7 @@ class AuthService {
     return user;
   }
   
- 
-async forgotPassword(email) {
+  async forgotPassword(email) {
     const user = await db.User.findOne({ where: { email } });
     
     if (!user) {
@@ -65,6 +65,11 @@ async forgotPassword(email) {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    
+    console.log('\n🔐 ========== PASSWORD RESET ==========');
+    console.log(`📧 Email: ${email}`);
+    console.log(`🔑 Token: ${resetToken}`);
+    console.log('=====================================\n');
     
     await user.update({
       resetPasswordToken,
