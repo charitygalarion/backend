@@ -79,23 +79,19 @@ exports.forgotPassword = async (req, res) => {
     const result = await authService.forgotPassword(email);
     
     if (result) {
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${result.resetToken}`;
-      console.log(`Password reset link: ${resetUrl}`);
-      
+      // Always return success message, don't reveal if email was sent
       return res.json({
-        message: 'If an account exists with this email, a password reset link has been sent.',
-        ...(process.env.NODE_ENV === 'development' && { resetUrl })
+        message: 'If an account exists with this email, a password reset token has been sent to your email.'
       });
     }
     
     res.json({
-      message: 'If an account exists with this email, a password reset link has been sent.'
+      message: 'If an account exists with this email, a password reset token has been sent to your email.'
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;

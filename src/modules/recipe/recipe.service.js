@@ -5,8 +5,6 @@ const path = require('path');
 
 const geminiVision = require('../../services/geminiVision.service');
 
-
-
 class RecipeService {
   async getAllRecipes(filters = {}) {
     const { mealType, difficulty, search, limit = 20 } = filters;
@@ -96,13 +94,11 @@ class RecipeService {
       instructions
     } = recipeData;
     
-    // Handle image upload
     let imageUrl = null;
     if (imageFile) {
       imageUrl = `/uploads/recipes/${imageFile.filename}`;
     }
     
-    // Create recipe
     const recipe = await db.Recipe.create({
       title,
       description,
@@ -117,7 +113,6 @@ class RecipeService {
       views: 0
     });
     
-    // Add ingredients
     if (ingredients && ingredients.length) {
       let parsedIngredients = ingredients;
       if (typeof ingredients === 'string') {
@@ -138,7 +133,6 @@ class RecipeService {
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
     }
     
-    // Add instructions
     if (instructions && instructions.length) {
       let parsedInstructions = instructions;
       if (typeof instructions === 'string') {
@@ -167,7 +161,6 @@ class RecipeService {
       throw new Error('Recipe not found');
     }
     
-    // Handle image upload
     let imageUrl = recipe.image;
     if (imageFile) {
       if (recipe.image) {
@@ -179,7 +172,6 @@ class RecipeService {
       imageUrl = `/uploads/recipes/${imageFile.filename}`;
     }
     
-    // Update recipe
     await recipe.update({
       title: recipeData.title,
       description: recipeData.description,
@@ -192,7 +184,6 @@ class RecipeService {
       is_filipino: recipeData.isFilipino
     });
     
-    // Update ingredients
     if (recipeData.ingredients) {
       await db.RecipeIngredient.destroy({ where: { recipe_id: recipeId } });
       
@@ -215,7 +206,6 @@ class RecipeService {
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
     }
     
-    // Update instructions
     if (recipeData.instructions) {
       await db.Instruction.destroy({ where: { recipe_id: recipeId } });
       
@@ -339,43 +329,43 @@ class RecipeService {
     };
   }
   
-   async getSavedRecipes(userId) {
-  try {
-    const savedRecipes = await db.UserSavedRecipe.findAll({
-      where: { user_id: userId },
-      include: [{
-        model: db.Recipe,
-        as: 'recipe',
-        required: false,
-        include: [
-          {
-            model: db.User,
-            as: 'creator',
-            attributes: ['username', 'email']
-          },
-          {
-            model: db.RecipeIngredient,
-            as: 'ingredients',
-            attributes: ['name', 'quantity', 'unit']
-          }
-        ]
-      }],
-      order: [['saved_at', 'DESC']]
-    }); 
-    
-    // Filter out null recipes
-    const validRecipes = savedRecipes
-      .map(sr => sr.recipe)
-      .filter(recipe => recipe !== null);
-    
-    return validRecipes;
-  } catch (error) {
-    console.error('Error in getSavedRecipes:', error);
-    return [];
+  async getSavedRecipes(userId) {
+    try {
+      const savedRecipes = await db.UserSavedRecipe.findAll({
+        where: { user_id: userId },
+        include: [{
+          model: db.Recipe,
+          as: 'recipe',
+          required: false,
+          include: [
+            {
+              model: db.User,
+              as: 'creator',
+              attributes: ['username', 'email']
+            },
+            {
+              model: db.RecipeIngredient,
+              as: 'ingredients',
+              attributes: ['name', 'quantity', 'unit']
+            }
+          ]
+        }],
+        order: [['saved_at', 'DESC']]
+      }); 
+      
+      const validRecipes = savedRecipes
+        .map(sr => sr.recipe)
+        .filter(recipe => recipe !== null);
+      
+      return validRecipes;
+    } catch (error) {
+      console.error('Error in getSavedRecipes:', error);
+      return [];
+    }
   }
-}
 
-async scanIngredientsFromImage(imageBuffer) {
+  // ✅ This method is now INSIDE the class
+  async scanIngredientsFromImage(imageBuffer) {
     try {
       console.log('📸 Scanning ingredients from image...');
       
@@ -395,7 +385,6 @@ async scanIngredientsFromImage(imageBuffer) {
       throw error;
     }
   }
-
 }
 
 module.exports = new RecipeService();

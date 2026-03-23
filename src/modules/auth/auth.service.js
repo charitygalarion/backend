@@ -52,7 +52,8 @@ class AuthService {
     return user;
   }
   
-  async forgotPassword(email) {
+ 
+async forgotPassword(email) {
     const user = await db.User.findOne({ where: { email } });
     
     if (!user) {
@@ -70,9 +71,13 @@ class AuthService {
       resetPasswordExpires
     });
     
-    return { user, resetToken };
+    // Send email with token
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    const emailSent = await emailService.sendPasswordResetEmail(email, resetToken, resetUrl);
+    
+    return { user, resetToken, emailSent };
   }
-  
+
   async resetPassword(token, newPassword) {
     const resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
     
