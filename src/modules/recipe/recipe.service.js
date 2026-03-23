@@ -371,6 +371,29 @@ class RecipeService {
   }
 }
 
+
+ async scanIngredientsFromImage(imageBuffer) {
+    try {
+      // Detect ingredients using Azure Vision
+      const detectedIngredients = await azureVision.detectIngredients(imageBuffer);
+      
+      // Extract just the ingredient names
+      const ingredientNames = detectedIngredients.map(i => i.name.toLowerCase());
+      
+      // Find recipes that match these ingredients
+      const recipes = await this.findRecipesByIngredients(ingredientNames);
+      
+      return {
+        detected: detectedIngredients,
+        recipes: recipes
+      };
+    } catch (error) {
+      console.error('Scan ingredients error:', error);
+      throw error;
+    }
+  }
+
+
 }
 
 module.exports = new RecipeService();

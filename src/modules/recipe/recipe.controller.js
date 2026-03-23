@@ -1,5 +1,7 @@
 const recipeService = require('./recipe.service');
 const { transformResponse } = require('../../utils/response.util');
+const multer = require('multer');
+const upload = multer();
 
 exports.getRecipes = async (req, res) => {
   try {
@@ -97,3 +99,16 @@ exports.getSavedRecipes = async (req, res) => {
     res.json([]);
   }
 }; 
+
+exports.scanIngredients = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image uploaded' });
+    }
+    
+    const result = await recipeService.scanIngredientsFromImage(req.file.buffer);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
