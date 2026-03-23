@@ -21,33 +21,37 @@ class AdminService {
       }
     });
     
-    // Total recipes saved (distinct saved relationships)
+    // Total recipes saved
     const totalRecipesSaved = await db.UserSavedRecipe.count({
       distinct: true,
       col: 'recipeId'
     });
     
-    // Most viewed recipes (top 10)
+    // Most viewed recipes
     const mostViewedRecipes = await db.Recipe.findAll({
       attributes: ['id', 'title', 'views', 'mealType', 'image'],
       order: [['views', 'DESC']],
       limit: 10
     });
     
-    // Recent users (last 7 days)
+    // Recent users (last 7 days) - use Sequelize's createdAt
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
     const newUsersLast7Days = await db.User.count({
       where: {
-        createdAt: { [Op.gte]: sevenDaysAgo }
+        createdAt: {
+          [Op.gte]: sevenDaysAgo
+        }
       }
     });
     
     // Recent recipes (last 7 days)
     const newRecipesLast7Days = await db.Recipe.count({
       where: {
-        createdAt: { [Op.gte]: sevenDaysAgo }
+        createdAt: {
+          [Op.gte]: sevenDaysAgo
+        }
       }
     });
     
@@ -68,7 +72,7 @@ class AdminService {
       }))
     };
   }
-  
+
   async getUserWithDetails(userId) {
     const user = await db.User.findByPk(userId, {
       attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
@@ -100,7 +104,9 @@ class AdminService {
     });
     
     // Get user preferences
-    const preferences = await db.UserPreference.findAll({ where: { userId } });
+    const preferences = await db.UserPreference.findAll({ 
+      where: { userId } 
+    });
     
     return {
       ...user.toJSON(),
@@ -109,9 +115,9 @@ class AdminService {
       dietaryRestrictions: preferences.filter(p => p.preferenceType === 'dietary_restriction').map(p => p.value)
     };
   }
-  
+
   async getDashboardData() {
-    // Get weekly stats (last 7 days)
+    // Get weekly stats
     const weeklyData = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
@@ -123,13 +129,17 @@ class AdminService {
       
       const newUsers = await db.User.count({
         where: {
-          createdAt: { [Op.between]: [date, nextDate] }
+          createdAt: {
+            [Op.between]: [date, nextDate]
+          }
         }
       });
       
       const newRecipes = await db.Recipe.count({
         where: {
-          createdAt: { [Op.between]: [date, nextDate] }
+          createdAt: {
+            [Op.between]: [date, nextDate]
+          }
         }
       });
       
@@ -140,7 +150,7 @@ class AdminService {
       });
     }
     
-    // Get top contributors (users with most recipes)
+    // Get top contributors
     const topContributors = await db.Recipe.findAll({
       attributes: [
         'createdBy',
@@ -164,7 +174,7 @@ class AdminService {
       }))
     };
   }
-  
+
   async deleteUser(userId) {
     const user = await db.User.findByPk(userId);
     
