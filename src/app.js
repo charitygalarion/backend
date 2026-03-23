@@ -28,6 +28,7 @@ const recipeRoutes = require('./modules/recipe/recipe.routes');
 const ingredientRoutes = require('./modules/ingredient/ingredient.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const chatbotRoutes = require('./modules/chatbot/chatbot.routes');
+const notificationRoutes = require('./modules/notification/notification.routes');
 
 // API endpoints
 app.use('/api/auth', authRoutes);
@@ -36,6 +37,7 @@ app.use('/api/recipes', recipeRoutes);
 app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

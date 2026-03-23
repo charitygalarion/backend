@@ -11,17 +11,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(30),
       allowNull: false,
       unique: true,
-      validate: {
-        len: [3, 30]
-      }
+      validate: { len: [3, 30] }
     },
     email: {
       type: DataTypes.STRING(255),
       allowNull: false,
       unique: true,
-      validate: {
-        isEmail: true
-      }
+      validate: { isEmail: true }
     },
     password: {
       type: DataTypes.STRING(255),
@@ -58,6 +54,60 @@ module.exports = (sequelize, DataTypes) => {
     resetPasswordExpires: {
       type: DataTypes.DATE,
       field: 'reset_password_expires'
+    },
+    
+    // ✅ Moderation Fields
+    status: {
+      type: DataTypes.ENUM('active', 'suspended', 'banned'),
+      defaultValue: 'active',
+      field: 'status'
+    },
+    suspensionReason: {
+      type: DataTypes.TEXT,
+      field: 'suspension_reason'
+    },
+    suspendedUntil: {
+      type: DataTypes.DATE,
+      field: 'suspended_until'
+    },
+    banReason: {
+      type: DataTypes.TEXT,
+      field: 'ban_reason'
+    },
+    bannedAt: {
+      type: DataTypes.DATE,
+      field: 'banned_at'
+    },
+    bannedBy: {
+      type: DataTypes.INTEGER,
+      field: 'banned_by'
+    },
+    moderationNotes: {
+      type: DataTypes.TEXT,
+      field: 'moderation_notes'
+    },
+    
+    // ✅ Reported Content
+    reportedImages: {
+      type: DataTypes.JSON,
+      field: 'reported_images',
+      defaultValue: []
+    },
+    moderationHistory: {
+      type: DataTypes.JSON,
+      field: 'moderation_history',
+      defaultValue: []
+    },
+    
+    // ✅ Violation Count
+    violationCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      field: 'violation_count'
+    },
+    lastViolation: {
+      type: DataTypes.DATE,
+      field: 'last_violation'
     }
   }, {
     tableName: 'users',

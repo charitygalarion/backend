@@ -83,6 +83,72 @@ class EmailService {
       return false;
     }
   }
+
+
+  async sendWarningEmail(email, username, reason, violationCount) {
+    const mailOptions = {
+      from: `"FreshRecipe" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Warning: Community Guidelines Violation',
+      html: `
+        <h2>⚠️ Community Guidelines Warning</h2>
+        <p>Hello ${username},</p>
+        <p>You have received a warning for: ${reason}</p>
+        <p>This is warning #${violationCount}. Further violations may result in suspension.</p>
+        <p>If you have questions, please contact support.</p>
+      `
+    };
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  async sendSuspensionEmail(email, username, reason, durationDays, suspendedUntil) {
+    const mailOptions = {
+      from: `"FreshRecipe" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Account Temporarily Suspended',
+      html: `
+        <h2>⏰ Account Temporarily Suspended</h2>
+        <p>Hello ${username},</p>
+        <p>Your account has been suspended for ${durationDays} days.</p>
+        <p><strong>Reason:</strong> ${reason}</p>
+        <p><strong>Account will be restored on:</strong> ${suspendedUntil.toLocaleDateString()}</p>
+        <p>If you have questions, please contact support.</p>
+      `
+    };
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  async sendBanEmail(email, username, reason) {
+    const mailOptions = {
+      from: `"FreshRecipe" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Account Permanently Banned',
+      html: `
+        <h2>🚫 Account Permanently Banned</h2>
+        <p>Hello ${username},</p>
+        <p>Your account has been permanently banned.</p>
+        <p><strong>Reason:</strong> ${reason}</p>
+        <p>This decision is final.</p>
+      `
+    };
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  async sendUnbanEmail(email, username) {
+    const mailOptions = {
+      from: `"FreshRecipe" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Account Restored',
+      html: `
+        <h2>✅ Account Restored</h2>
+        <p>Hello ${username},</p>
+        <p>Your account has been restored. You can now access all features again.</p>
+        <p>Welcome back!</p>
+      `
+    };
+    await this.transporter.sendMail(mailOptions);
+  }
 }
+
 
 module.exports = new EmailService();
