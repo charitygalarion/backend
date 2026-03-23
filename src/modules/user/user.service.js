@@ -2,6 +2,7 @@ const db = require('../../database/models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const notificationService = require('../notification/notification.service');
 
 class UserService {
   async getProfile(userId) {
@@ -32,69 +33,67 @@ class UserService {
     };
   }
   
- async updateProfile(userId, updateData, imageFile = null) {
-  try {
-    const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = updateData;
-    
-    console.log('UserService.updateProfile called with:', { userId, updateData, hasImage: !!imageFile });
-    
-    const user = await db.User.findByPk(userId);
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
-    
-    // Handle profile image upload
-    let avatarUrl = user.avatar;
-    if (imageFile) {
-      console.log('Processing image file:', imageFile.filename);
-      // Delete old avatar if exists
-      if (user.avatar) {
-        const oldAvatarPath = path.join(__dirname, '../../../uploads/profiles', path.basename(user.avatar));
-        if (fs.existsSync(oldAvatarPath)) {
-          fs.unlinkSync(oldAvatarPath);
+  async updateProfile(userId, updateData, imageFile = null) {
+    try {
+      const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = updateData;
+      
+      console.log('UserService.updateProfile called with:', { userId, updateData, hasImage: !!imageFile });
+      
+      const user = await db.User.findByPk(userId);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Handle profile image upload
+      let avatarUrl = user.avatar;
+      if (imageFile) {
+        console.log('Processing image file:', imageFile.filename);
+        if (user.avatar) {
+          const oldAvatarPath = path.join(__dirname, '../../../uploads/profiles', path.basename(user.avatar));
+          if (fs.existsSync(oldAvatarPath)) {
+            fs.unlinkSync(oldAvatarPath);
+          }
+        }
+        avatarUrl = `/uploads/profiles/${imageFile.filename}`;
+      }
+      
+      // Check if username/email already taken
+      if (username || email) {
+        const where = {};
+        if (username) where.username = username;
+        if (email) where.email = email;
+        
+        const existingUser = await db.User.findOne({
+          where: {
+            ...where,
+            id: { [Op.ne]: userId }
+          }
+        });
+        
+        if (existingUser) {
+          throw new Error('Username or email already taken');
         }
       }
-      // Set new avatar URL
-      avatarUrl = `/uploads/profiles/${imageFile.filename}`;
-    }
-    
-    // Check if username/email already taken
-    if (username || email) {
-      const where = {};
-      if (username) where.username = username;
-      if (email) where.email = email;
       
-      const existingUser = await db.User.findOne({
-        where: {
-          ...where,
-          id: { [Op.ne]: userId }
-        }
-      });
+      // Build update object
+      const updateFields = {};
+      if (username !== undefined) updateFields.username = username;
+      if (email !== undefined) updateFields.email = email;
+      if (firstName !== undefined) updateFields.firstName = firstName;
+      if (lastName !== undefined) updateFields.lastName = lastName;
+      if (avatarUrl) updateFields.avatar = avatarUrl;
       
-      if (existingUser) {
-        throw new Error('Username or email already taken');
-      }
+      console.log('Updating user with fields:', updateFields);
+      
+      await user.update(updateFields);
+      
+      return await this.getProfile(userId);
+    } catch (error) {
+      console.error('Error in updateProfile service:', error);
+      throw error;
     }
-    
-    // Build update object
-    const updateFields = {};
-    if (username !== undefined) updateFields.username = username;
-    if (email !== undefined) updateFields.email = email;
-    if (firstName !== undefined) updateFields.firstName = firstName;
-    if (lastName !== undefined) updateFields.lastName = lastName;
-    if (avatarUrl) updateFields.avatar = avatarUrl;
-    
-    console.log('Updating user with fields:', updateFields);
-    
-    await user.update(updateFields);
-    
-    return await this.getProfile(userId);
-  } catch (error) {
-    console.error('Error in updateProfile service:', error);
-    throw error;
   }
-}
   
   async toggleSaveRecipe(userId, recipeId) {
     const recipe = await db.Recipe.findByPk(recipeId);
@@ -152,8 +151,11 @@ class UserService {
     
     if (status === 'active') {
       where.isActive = true;
-    } else if (status === 'inactive') {
-      where.isActive = false;
+      where.status = 'active';
+    } else if (status === 'suspended') {
+      where.status = 'suspended';
+    } else if (status === 'banned') {
+      where.status = 'banned';
     } else if (status === 'activeToday') {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -194,6 +196,176 @@ class UserService {
     
     await user.destroy();
     return true;
+  }
+
+  async getUserDetails(userId) {
+    const user = await db.User.findByPk(userId, {
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
+    });
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Get saved recipes count
+    const savedRecipesCount = await db.UserSavedRecipe.count({
+      where: { user_id: userId }
+    });
+    
+    // Get recipes created by user
+    const recipes = await db.Recipe.findAll({
+      where: { created_by: userId },
+      attributes: ['id', 'title', 'image', 'created_at'],
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Get reported images
+    const reportedImages = user.reportedImages || [];
+    
+    return {
+      ...user.toJSON(),
+      savedRecipesCount,
+      recipes,
+      reportedImages
+    };
+  }
+
+  async suspendUser(userId, adminId, reason, durationDays = 7) {
+    const user = await db.User.findByPk(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (user.role === 'admin') {
+      throw new Error('Cannot suspend admin users');
+    }
+    
+    const suspendedUntil = new Date();
+    suspendedUntil.setDate(suspendedUntil.getDate() + durationDays);
+    
+    // Add to moderation history
+    const history = user.moderationHistory || [];
+    history.push({
+      action: 'suspended',
+      reason,
+      adminId,
+      date: new Date(),
+      duration: `${durationDays} days`,
+      suspendedUntil
+    });
+    
+    await user.update({
+      status: 'suspended',
+      suspensionReason: reason,
+      suspendedUntil,
+      moderationHistory: history,
+      isActive: false
+    });
+    
+    // Send notification
+    await notificationService.sendSuspension(user, reason, durationDays, suspendedUntil);
+    
+    return user;
+  }
+
+  async banUser(userId, adminId, reason) {
+    const user = await db.User.findByPk(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    if (user.role === 'admin') {
+      throw new Error('Cannot ban admin users');
+    }
+    
+    // Add to moderation history
+    const history = user.moderationHistory || [];
+    history.push({
+      action: 'banned',
+      reason,
+      adminId,
+      date: new Date(),
+      permanent: true
+    });
+    
+    await user.update({
+      status: 'banned',
+      banReason: reason,
+      bannedAt: new Date(),
+      bannedBy: adminId,
+      moderationHistory: history,
+      isActive: false
+    });
+    
+    // Send notification
+    await notificationService.sendBan(user, reason);
+    
+    return user;
+  }
+
+  async warnUser(userId, reason) {
+    const user = await db.User.findByPk(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    const violationCount = (user.violationCount || 0) + 1;
+    
+    // Add to moderation history
+    const history = user.moderationHistory || [];
+    history.push({
+      action: 'warning',
+      reason,
+      date: new Date(),
+      warningNumber: violationCount
+    });
+    
+    await user.update({
+      violationCount,
+      lastViolation: new Date(),
+      moderationHistory: history
+    });
+    
+    // Send notification
+    await notificationService.sendWarning(user, reason, violationCount);
+    
+    return { user, violationCount };
+  }
+
+  async restoreUser(userId, adminId) {
+    const user = await db.User.findByPk(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Add to moderation history
+    const history = user.moderationHistory || [];
+    history.push({
+      action: 'restored',
+      adminId,
+      date: new Date(),
+      previousStatus: user.status
+    });
+    
+    await user.update({
+      status: 'active',
+      suspensionReason: null,
+      suspendedUntil: null,
+      banReason: null,
+      bannedAt: null,
+      bannedBy: null,
+      moderationHistory: history,
+      isActive: true
+    });
+    
+    // Send notification
+    await notificationService.sendUnban(user);
+    
+    return user;
   }
 }
 

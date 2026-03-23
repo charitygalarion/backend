@@ -143,3 +143,60 @@ exports.uploadAvatar = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await userService.getUserDetails(id);
+    res.json(transformResponse(user));
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+
+exports.suspendUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, durationDays } = req.body;
+    
+    const user = await userService.suspendUser(id, req.user._id, reason, durationDays || 7);
+    res.json({ message: 'User suspended successfully', user: transformResponse(user) });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.banUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const user = await userService.banUser(id, req.user._id, reason);
+    res.json({ message: 'User banned successfully', user: transformResponse(user) });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.warnUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const result = await userService.warnUser(id, reason);
+    res.json({ message: 'User warned successfully', violationCount: result.violationCount });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.restoreUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await userService.restoreUser(id, req.user._id);
+    res.json({ message: 'User restored successfully', user: transformResponse(user) });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
