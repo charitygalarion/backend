@@ -1,11 +1,11 @@
 const axios = require('axios');
 
 class HuggingFaceVisionService {
-  constructor() {
+   constructor() {
     this.apiKey = process.env.HF_API_KEY;
-    // Use food detection model
-    this.model = 'nateraw/food';
-    this.url = `https://api-inference.huggingface.co/models/${this.model}`;
+    // Update to new router URL
+    this.model = 'google/vit-base-patch16-224';
+    this.url = `https://router.huggingface.co/hf-inference/models/${this.model}`;
   }
 
   async detectIngredients(imageBuffer) {
