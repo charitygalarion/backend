@@ -96,4 +96,4 @@ exports.getSavedRecipes = async (req, res) => {
     // Return empty array instead of error
     res.json([]);
   }
-};
+}; 

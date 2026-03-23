@@ -6,12 +6,14 @@ const recipeController = require('./recipe.controller');
 
 // Public routes
 router.get('/', recipeController.getRecipes);
-router.get('/:id', recipeController.getRecipeById);
 router.post('/find-by-ingredients', recipeController.findRecipesByIngredients);
 
-// Protected routes
-router.get('/saved', protect, recipeController.getSavedRecipes);
+// Protected routes - MUST be BEFORE /:id
+router.get('/saved', protect, recipeController.getSavedRecipes);  // ✅ Moved before /:id
 router.put('/:id/servings', protect, recipeController.adjustServingSize);
+
+// Public route with param - should be AFTER specific routes
+router.get('/:id', recipeController.getRecipeById);
 
 // Admin only routes with image upload
 router.post('/', protect, admin, uploadRecipeImage, recipeController.createRecipe);

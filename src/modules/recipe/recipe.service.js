@@ -335,14 +335,14 @@ class RecipeService {
     };
   }
   
-  async getSavedRecipes(userId) {
+   async getSavedRecipes(userId) {
   try {
     const savedRecipes = await db.UserSavedRecipe.findAll({
       where: { user_id: userId },
       include: [{
         model: db.Recipe,
         as: 'recipe',
-        required: false,  // ✅ Make it optional so it doesn't fail if no recipes
+        required: false,
         include: [
           {
             model: db.User,
@@ -357,7 +357,7 @@ class RecipeService {
         ]
       }],
       order: [['saved_at', 'DESC']]
-    });
+    }); 
     
     // Filter out null recipes
     const validRecipes = savedRecipes
@@ -367,9 +367,10 @@ class RecipeService {
     return validRecipes;
   } catch (error) {
     console.error('Error in getSavedRecipes:', error);
-    return [];  // ✅ Return empty array on error
+    return [];
   }
 }
+
 }
 
 module.exports = new RecipeService();
