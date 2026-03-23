@@ -7,13 +7,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     recipeId: {
       type: DataTypes.INTEGER,
-      field: 'recipe_id',
-      allowNull: false
+      field: 'recipe_id'
     },
     stepNumber: {
       type: DataTypes.INTEGER,
-      field: 'step_number',
-      allowNull: false
+      field: 'step_number'
     },
     text: {
       type: DataTypes.TEXT,
@@ -21,9 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: 'instructions',
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: false
+    timestamps: false
   });
 
   Instruction.associate = (db) => {

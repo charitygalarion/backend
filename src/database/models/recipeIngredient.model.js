@@ -7,13 +7,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     recipeId: {
       type: DataTypes.INTEGER,
-      field: 'recipe_id',
-      allowNull: false
-    },
-    ingredientId: {
-      type: DataTypes.INTEGER,
-      field: 'ingredient_id',
-      allowNull: true
+      field: 'recipe_id'
     },
     name: {
       type: DataTypes.STRING(100),
@@ -24,11 +18,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     unit: {
       type: DataTypes.STRING(50)
-    },
-    sortOrder: {
-      type: DataTypes.INTEGER,
-      field: 'sort_order',
-      defaultValue: 0
     }
   }, {
     tableName: 'recipe_ingredients',
@@ -39,11 +28,6 @@ module.exports = (sequelize, DataTypes) => {
     RecipeIngredient.belongsTo(db.Recipe, {
       foreignKey: 'recipe_id',
       as: 'recipe'
-    });
-    
-    RecipeIngredient.belongsTo(db.Ingredient, {
-      foreignKey: 'ingredient_id',
-      as: 'ingredient'
     });
   };
 
