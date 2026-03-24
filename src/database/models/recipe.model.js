@@ -14,15 +14,17 @@ module.exports = (sequelize, DataTypes) => {
     },
     mealType: {
       type: DataTypes.ENUM('Breakfast', 'Lunch', 'Dinner', 'Snack'),
-      field: 'meal_type'  // ✅ Map to database column
+      field: 'meal_type'
     },
     prepTime: {
       type: DataTypes.INTEGER,
-      field: 'prep_time'
+      field: 'prep_time',     // ✅ Must match database column name
+      defaultValue: 0
     },
     cookTime: {
       type: DataTypes.INTEGER,
-      field: 'cook_time'
+      field: 'cook_time',     // ✅ Must match database column name
+      defaultValue: 0
     },
     servings: {
       type: DataTypes.INTEGER,
@@ -51,7 +53,7 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'recipes',
     timestamps: true,
     underscored: true,
-    createdAt: 'created_at',  // ✅ Map to database column
+    createdAt: 'created_at',
     updatedAt: 'updated_at'
   });
 
