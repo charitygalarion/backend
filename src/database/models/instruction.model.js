@@ -11,7 +11,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     stepNumber: {
       type: DataTypes.INTEGER,
-      field: 'step_number'
+      field: 'step_number',
+      allowNull:false
     },
     text: {
       type: DataTypes.TEXT,

@@ -62,9 +62,34 @@ exports.getAllRecipes = async (req, res) => {
 
 exports.createRecipe = async (req, res) => {
   try {
-    const recipe = await recipeService.createRecipe(req.body, req.user._id);
+    console.log('=== ADMIN CREATE RECIPE ===');
+    console.log('Body:', req.body);
+    console.log('File:', req.file);
+    console.log('User:', req.user?._id);
+    
+    // Parse JSON strings from FormData
+    let parsedBody = { ...req.body };
+    
+    if (req.body.ingredients && typeof req.body.ingredients === 'string') {
+      try {
+        parsedBody.ingredients = JSON.parse(req.body.ingredients);
+      } catch (e) {
+        console.error('Failed to parse ingredients:', e);
+      }
+    }
+    
+    if (req.body.instructions && typeof req.body.instructions === 'string') {
+      try {
+        parsedBody.instructions = JSON.parse(req.body.instructions);
+      } catch (e) {
+        console.error('Failed to parse instructions:', e);
+      }
+    }
+    
+    const recipe = await recipeService.createRecipe(parsedBody, req.user._id, req.file);
     res.status(201).json(transformResponse(recipe));
   } catch (error) {
+    console.error('Create recipe error:', error.message);
     res.status(400).json({ message: error.message });
   }
 };
@@ -72,9 +97,30 @@ exports.createRecipe = async (req, res) => {
 exports.updateRecipe = async (req, res) => {
   try {
     const { id } = req.params;
-    const recipe = await recipeService.updateRecipe(id, req.body);
+    
+    // Parse JSON strings from FormData
+    let parsedBody = { ...req.body };
+    
+    if (req.body.ingredients && typeof req.body.ingredients === 'string') {
+      try {
+        parsedBody.ingredients = JSON.parse(req.body.ingredients);
+      } catch (e) {
+        console.error('Failed to parse ingredients:', e);
+      }
+    }
+    
+    if (req.body.instructions && typeof req.body.instructions === 'string') {
+      try {
+        parsedBody.instructions = JSON.parse(req.body.instructions);
+      } catch (e) {
+        console.error('Failed to parse instructions:', e);
+      }
+    }
+    
+    const recipe = await recipeService.updateRecipe(id, parsedBody, req.file);
     res.json(transformResponse(recipe));
   } catch (error) {
+    console.error('Update recipe error:', error.message);
     res.status(400).json({ message: error.message });
   }
 };
