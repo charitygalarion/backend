@@ -79,8 +79,7 @@ class RecipeService {
     
     return recipe;
   }
- 
-  async createRecipe(recipeData, userId, imageFile = null) {
+ async createRecipe(recipeData, userId, imageFile = null) {
   const {
     title,
     description,
@@ -130,11 +129,11 @@ class RecipeService {
     }
     
     const recipeIngredients = parsedIngredients.map((ing, index) => ({
-      recipeId: recipe.id,           // ✅ Use model attribute
+      recipeId: recipe.id,
       name: ing.name,
       quantity: ing.quantity || '',
       unit: ing.unit || '',
-      sortOrder: index               // ✅ Use model attribute
+      sortOrder: index
     }));
     await db.RecipeIngredient.bulkCreate(recipeIngredients);
   }
@@ -151,8 +150,8 @@ class RecipeService {
     }
     
     const recipeInstructions = parsedInstructions.map((inst, index) => ({
-      recipeId: recipe.id,           // ✅ Use model attribute
-      stepNumber: inst.step || inst.stepNumber || index + 1,  // ✅ Use model attribute
+      recipeId: recipe.id,
+      stepNumber: inst.step || index + 1,
       text: inst.text || inst.description
     }));
     
@@ -180,6 +179,7 @@ async updateRecipe(recipeId, recipeData, imageFile = null) {
     imageUrl = `/uploads/recipes/${imageFile.filename}`;
   }
   
+  // Update recipe
   await recipe.update({
     title: recipeData.title,
     description: recipeData.description,
@@ -189,7 +189,7 @@ async updateRecipe(recipeId, recipeData, imageFile = null) {
     servings: recipeData.servings,
     image: imageUrl,
     difficulty: recipeData.difficulty,
-    is_filipino: recipeData.isFilipino
+    is_filipino: recipeData.isFilipino !== undefined ? recipeData.isFilipino : true
   });
   
   // Update ingredients
@@ -206,16 +206,16 @@ async updateRecipe(recipeId, recipeData, imageFile = null) {
     }
     
     const recipeIngredients = parsedIngredients.map((ing, index) => ({
-      recipe_id: recipe.id,
+      recipeId: recipe.id,           // ✅ Use model attribute
       name: ing.name,
       quantity: ing.quantity || '',
       unit: ing.unit || '',
-      sort_order: index
+      sortOrder: index               // ✅ Use model attribute
     }));
     await db.RecipeIngredient.bulkCreate(recipeIngredients);
   }
   
-  // Update instructions - FIX: Include step_number
+  // Update instructions
   if (recipeData.instructions) {
     await db.Instruction.destroy({ where: { recipe_id: recipeId } });
     
@@ -229,16 +229,16 @@ async updateRecipe(recipeId, recipeData, imageFile = null) {
     }
     
     const recipeInstructions = parsedInstructions.map((inst, index) => ({
-      recipe_id: recipe.id,
-      step_number: inst.step || index + 1,  // ✅ Add step_number
+      recipeId: recipe.id,                    // ✅ Use model attribute
+      stepNumber: inst.step || index + 1,     // ✅ Use model attribute
       text: inst.text || inst.description
     }));
+    
     await db.Instruction.bulkCreate(recipeInstructions);
   }
   
   return await this.getRecipeById(recipeId);
 }
-
 
   async deleteRecipe(recipeId) {
     const recipe = await db.Recipe.findByPk(recipeId);
