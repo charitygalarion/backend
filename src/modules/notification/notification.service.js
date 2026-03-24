@@ -4,7 +4,7 @@ const emailService = require('../../services/email.service');
 class NotificationService {
   // Create notification
   async create(userId, type, title, message, severity = 'info', metadata = {}) {
-    return await db.Notification.create({
+    return await db.UserNotification.create({
       userId,
       type,
       title,
@@ -16,16 +16,16 @@ class NotificationService {
 
   // Get user notifications
   async getUserNotifications(userId, limit = 50) {
-    return await db.Notification.findAll({
+    return await db.UserNotification.findAll({
       where: { userId },
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],  // ✅ Use created_at (database column)
       limit
     });
   }
 
   // Get unread notifications
   async getUnreadNotifications(userId) {
-    return await db.Notification.findAll({
+    return await db.UserNotification.findAll({
       where: {
         userId,
         isRead: false,
@@ -34,13 +34,13 @@ class NotificationService {
           { expiresAt: { [db.Sequelize.Op.gt]: new Date() } }
         ]
       },
-      order: [['createdAt', 'DESC']]
+      order: [['created_at', 'DESC']]  // ✅ Use created_at (database column)
     });
   }
 
   // Mark as read
   async markAsRead(notificationId, userId) {
-    const notification = await db.Notification.findOne({
+    const notification = await db.UserNotification.findOne({
       where: { id: notificationId, userId }
     });
     
@@ -56,7 +56,7 @@ class NotificationService {
 
   // Mark all as read
   async markAllAsRead(userId) {
-    await db.Notification.update(
+    await db.UserNotification.update(
       { isRead: true, readAt: new Date() },
       { where: { userId, isRead: false } }
     );
@@ -64,14 +64,13 @@ class NotificationService {
 
   // Delete notification
   async delete(notificationId, userId) {
-    return await db.Notification.destroy({
+    return await db.UserNotification.destroy({
       where: { id: notificationId, userId }
     });
   }
 
   // Send warning notification
   async sendWarning(user, reason, violationCount) {
-    // Create in-app notification
     await this.create(
       user.id,
       'warning',
@@ -81,7 +80,6 @@ class NotificationService {
       { reason, violationCount }
     );
     
-    // Send email
     await emailService.sendWarningEmail(user.email, user.username, reason, violationCount);
   }
 

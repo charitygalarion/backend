@@ -54,8 +54,8 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'user_notifications',
     timestamps: true,
     underscored: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    createdAt: 'created_at',  // ✅ Map to database column
+    updatedAt: 'updated_at'   // ✅ Map to database column
   });
 
   UserNotification.associate = (db) => {
