@@ -14,6 +14,7 @@ db.RecipeIngredient = require('./recipeIngredient.model')(sequelize, Sequelize);
 db.Instruction = require('./instruction.model')(sequelize, Sequelize);
 db.UserSavedRecipe = require('./userSavedRecipe.model')(sequelize, Sequelize);
 db.UserPreference = require('./userPreference.model')(sequelize, Sequelize);
+db.UserNotification = require('./userNotification.model')(sequelize, Sequelize); // ✅ Add this line
 
 // Setup associations
 Object.keys(db).forEach(modelName => {
