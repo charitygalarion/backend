@@ -97,27 +97,45 @@ exports.createRecipe = async (req, res) => {
 exports.updateRecipe = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('Updating recipe ID:', id);
+    console.log('Update body:', req.body);
+    console.log('Update file:', req.file);
+    
+    if (!id) {
+      return res.status(400).json({ message: 'Recipe ID is required' });
+    }
     
     // Parse JSON strings from FormData
     let parsedBody = { ...req.body };
     
+    // Parse ingredients
     if (req.body.ingredients && typeof req.body.ingredients === 'string') {
       try {
         parsedBody.ingredients = JSON.parse(req.body.ingredients);
+        console.log('Parsed ingredients:', parsedBody.ingredients);
       } catch (e) {
         console.error('Failed to parse ingredients:', e);
+        parsedBody.ingredients = [];
       }
     }
     
+    // Parse instructions
     if (req.body.instructions && typeof req.body.instructions === 'string') {
       try {
         parsedBody.instructions = JSON.parse(req.body.instructions);
+        console.log('Parsed instructions:', parsedBody.instructions);
       } catch (e) {
         console.error('Failed to parse instructions:', e);
+        parsedBody.instructions = [];
       }
     }
     
-    const recipe = await recipeService.updateRecipe(id, parsedBody, req.file);
+    // Ensure numeric fields are numbers
+    parsedBody.prepTime = parsedBody.prepTime ? parseInt(parsedBody.prepTime) : 0;
+    parsedBody.cookTime = parsedBody.cookTime ? parseInt(parsedBody.cookTime) : 0;
+    parsedBody.servings = parsedBody.servings ? parseInt(parsedBody.servings) : 4;
+    
+    const recipe = await recipeService.updateRecipe(parseInt(id), parsedBody, req.file);
     res.json(transformResponse(recipe));
   } catch (error) {
     console.error('Update recipe error:', error.message);
@@ -128,9 +146,16 @@ exports.updateRecipe = async (req, res) => {
 exports.deleteRecipe = async (req, res) => {
   try {
     const { id } = req.params;
-    await recipeService.deleteRecipe(id);
+    console.log('Deleting recipe ID:', id);
+    
+    if (!id) {
+      return res.status(400).json({ message: 'Recipe ID is required' });
+    }
+    
+    await recipeService.deleteRecipe(parseInt(id));
     res.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
+    console.error('Delete recipe error:', error.message);
     res.status(404).json({ message: error.message });
   }
 };

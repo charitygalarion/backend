@@ -162,14 +162,17 @@ class RecipeService {
 }
 
 async updateRecipe(recipeId, recipeData, imageFile = null) {
+ console.log('RecipeService.updateRecipe called with ID:', recipeId);
+
   const recipe = await db.Recipe.findByPk(recipeId);
   
   if (!recipe) {
+     console.log('Recipe not found for ID:', recipeId);
     throw new Error('Recipe not found');
-  }
+  } 
   
   let imageUrl = recipe.image;
-  if (imageFile) {
+  if (imageFile) { 
     if (recipe.image) {
       const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
       if (fs.existsSync(oldImagePath)) {
@@ -241,6 +244,7 @@ async updateRecipe(recipeId, recipeData, imageFile = null) {
 }
 
   async deleteRecipe(recipeId) {
+    console.log('RecipeService.deleteRecipe called with ID:', recipeId);
     const recipe = await db.Recipe.findByPk(recipeId);
     
     if (!recipe) {
