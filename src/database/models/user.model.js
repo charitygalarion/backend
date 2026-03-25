@@ -108,6 +108,13 @@ module.exports = (sequelize, DataTypes) => {
     lastViolation: {
       type: DataTypes.DATE,
       field: 'last_violation'
+    },
+    
+    // ✅ Token Version for session invalidation (NEW)
+    tokenVersion: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      field: 'token_version'
     }
   }, {
     tableName: 'users',

@@ -31,6 +31,54 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized, user not found' });
     }
 
+    // Check if token version matches (invalidates old tokens after suspension/ban)
+    if (user.tokenVersion !== undefined && decoded.tokenVersion !== undefined) {
+      if (user.tokenVersion !== decoded.tokenVersion) {
+        return res.status(401).json({ 
+          message: 'Your session has expired. Please login again.',
+          code: 'SESSION_EXPIRED'
+        });
+      }
+    }
+
+    // Check if user is banned
+    if (user.status === 'banned') {
+      return res.status(403).json({ 
+        message: 'Your account has been permanently banned',
+        code: 'ACCOUNT_BANNED'
+      });
+    }
+    
+    // Check if user is suspended
+    if (user.status === 'suspended') {
+      const suspendedUntil = new Date(user.suspendedUntil);
+      const now = new Date();
+      
+      if (suspendedUntil > now) {
+        return res.status(403).json({ 
+          message: `Your account is suspended until ${suspendedUntil.toLocaleDateString()}`,
+          code: 'ACCOUNT_SUSPENDED',
+          suspendedUntil: user.suspendedUntil
+        });
+      } else {
+        // Auto-restore if suspension expired
+        await user.update({
+          status: 'active',
+          suspensionReason: null,
+          suspendedUntil: null,
+          isActive: true
+        });
+      }
+    }
+
+    // Check if account is active
+    if (!user.isActive && user.status !== 'active') {
+      return res.status(403).json({ 
+        message: 'Your account is deactivated',
+        code: 'ACCOUNT_DEACTIVATED'
+      });
+    }
+
     // Attach user to request
     req.user = {
       _id: user.id,
@@ -41,7 +89,8 @@ const protect = async (req, res, next) => {
       firstName: user.firstName,
       lastName: user.lastName,
       avatar: user.avatar,
-      isActive: user.isActive
+      isActive: user.isActive,
+      status: user.status
     };
     
     next();
