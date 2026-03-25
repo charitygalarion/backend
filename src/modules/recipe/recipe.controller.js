@@ -16,7 +16,7 @@ exports.getRecipes = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
+}; 
 
 exports.getRecipeById = async (req, res) => {
   try {
@@ -110,6 +110,30 @@ exports.scanIngredients = async (req, res) => {
     const result = await recipeService.scanIngredientsFromImage(req.file.buffer);
     res.json(result);
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Add these functions after getRecipes
+
+exports.getRecentRecipes = async (req, res) => {
+  try {
+    const { limit = 6 } = req.query;
+    const recipes = await recipeService.getRecentRecipes(parseInt(limit));
+    res.json(transformResponse(recipes));
+  } catch (error) {
+    console.error('Error fetching recent recipes:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getPopularRecipes = async (req, res) => {
+  try {
+    const { limit = 6 } = req.query;
+    const recipes = await recipeService.getPopularRecipes(parseInt(limit));
+    res.json(transformResponse(recipes));
+  } catch (error) {
+    console.error('Error fetching popular recipes:', error);
     res.status(500).json({ message: error.message });
   }
 };

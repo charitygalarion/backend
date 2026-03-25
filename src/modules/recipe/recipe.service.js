@@ -531,6 +531,73 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
       throw error;
     }
   }
+
+
+  // Add these methods to RecipeService class
+
+async getRecentRecipes(limit = 6) {
+  console.log('🆕 [RECIPE SERVICE] getRecentRecipes called');
+  console.log('   Limit:', limit);
+  
+  const recipes = await db.Recipe.findAll({
+    include: [
+      {
+        model: db.User,
+        as: 'creator',
+        attributes: ['username', 'email']
+      },
+      {
+        model: db.RecipeIngredient,
+        as: 'ingredients',
+        attributes: ['name', 'quantity', 'unit', 'sort_order'],
+        order: [['sort_order', 'ASC']]
+      },
+      {
+        model: db.Instruction,
+        as: 'instructions',
+        attributes: ['step_number', 'text'],
+        order: [['step_number', 'ASC']]
+      }
+    ],
+    order: [['created_at', 'DESC']],
+    limit: parseInt(limit)
+  });
+  
+  console.log(`✅ [RECIPE SERVICE] getRecentRecipes returning ${recipes.length} recipes`);
+  return recipes;
+}
+
+async getPopularRecipes(limit = 6) {
+  console.log('🔥 [RECIPE SERVICE] getPopularRecipes called');
+  console.log('   Limit:', limit);
+  
+  const recipes = await db.Recipe.findAll({
+    include: [
+      {
+        model: db.User,
+        as: 'creator',
+        attributes: ['username', 'email']
+      },
+      {
+        model: db.RecipeIngredient,
+        as: 'ingredients',
+        attributes: ['name', 'quantity', 'unit', 'sort_order'],
+        order: [['sort_order', 'ASC']]
+      },
+      {
+        model: db.Instruction,
+        as: 'instructions',
+        attributes: ['step_number', 'text'],
+        order: [['step_number', 'ASC']]
+      }
+    ],
+    order: [['views', 'DESC']],
+    limit: parseInt(limit)
+  });
+  
+  console.log(`✅ [RECIPE SERVICE] getPopularRecipes returning ${recipes.length} recipes`);
+  return recipes;
+}
 }
 
 module.exports = new RecipeService();
