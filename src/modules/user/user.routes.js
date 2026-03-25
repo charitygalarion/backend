@@ -29,5 +29,5 @@ router.get('/generated-recipes', protect, userController.getUserGeneratedRecipes
 router.delete('/generated-recipes/:id', protect, userController.deleteUserGeneratedRecipe);
 
 // NO ADMIN ROUTES HERE - They are moved to admin module
-
+ 
 module.exports = router;

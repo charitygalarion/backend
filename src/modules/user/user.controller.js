@@ -121,24 +121,6 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
-exports.saveGeneratedRecipe = async (req, res) => {
-  try {
-    const { recipe } = req.body;
-    const userId = req.user.id;
-    
-    // Save the generated recipe as a user's saved recipe
-    // This doesn't create a new recipe in the main recipes table
-    const savedRecipe = await userService.saveGeneratedRecipe(userId, recipe);
-    
-    res.json({ success: true, savedRecipe });
-  } catch (error) {
-    console.error('Save generated recipe error:', error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
-
-
 // Add these functions
 
 exports.saveGeneratedRecipe = async (req, res) => {
@@ -181,4 +163,4 @@ exports.deleteUserGeneratedRecipe = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
-module.exports = exports;
+module.exports = exports; 
