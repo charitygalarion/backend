@@ -1,7 +1,8 @@
 const db = require('../../database/models');
 const { comparePassword } = require('../../utils/password.util');
+const { generateToken } = require('../../utils/token.util');
 const crypto = require('crypto');
-const emailService = require('../../services/email.service'); // ✅ Add this line
+const emailService = require('../../services/email.service');
 
 class AuthService {
   async register(userData) {
@@ -26,7 +27,9 @@ class AuthService {
       firstName,
       lastName,
       role: 'user',
-      isActive: true
+      isActive: true,
+      status: 'active',
+      tokenVersion: 0
     });
     
     return user;
@@ -40,6 +43,31 @@ class AuthService {
       throw new Error('Invalid email or password');
     }
     
+    // Check if user is banned (prevent login)
+    if (user.status === 'banned') {
+      throw new Error('Your account has been permanently banned. Please contact support.');
+    }
+    
+    // Check if user is suspended (prevent login)
+    if (user.status === 'suspended') {
+      const suspendedUntil = new Date(user.suspendedUntil);
+      const now = new Date();
+      
+      if (suspendedUntil > now) {
+        const daysLeft = Math.ceil((suspendedUntil - now) / (1000 * 60 * 60 * 24));
+        throw new Error(`Your account is suspended. Please try again after ${suspendedUntil.toLocaleDateString()}. (${daysLeft} days remaining)`);
+      } else {
+        // Auto-restore if suspension expired
+        await user.update({
+          status: 'active',
+          suspensionReason: null,
+          suspendedUntil: null,
+          isActive: true
+        });
+        console.log(`✅ Auto-restored user: ${user.username} (suspension expired)`);
+      }
+    }
+    
     // Check password
     const isPasswordValid = await comparePassword(password, user.password);
     
@@ -50,7 +78,23 @@ class AuthService {
     // Update last active
     await user.update({ lastActive: new Date() });
     
-    return user;
+    // Generate token with token version
+    const tokenVersion = user.tokenVersion || 0;
+    const token = generateToken(user.id, tokenVersion);
+    
+    // Return user data without sensitive fields
+    const userData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatar: user.avatar,
+      role: user.role,
+      status: user.status
+    };
+    
+    return { user: userData, token };
   }
   
   async forgotPassword(email) {
@@ -103,6 +147,28 @@ class AuthService {
     user.resetPasswordExpires = null;
     
     await user.save();
+    
+    return user;
+  }
+  
+  async logout(userId) {
+    const user = await db.User.findByPk(userId);
+    if (user) {
+      const currentTokenVersion = user.tokenVersion || 0;
+      await user.update({ tokenVersion: currentTokenVersion + 1 });
+      console.log(`✅ User ${user.username} logged out, token version incremented to ${currentTokenVersion + 1}`);
+    }
+    return true;
+  }
+  
+  async getUserStatus(userId) {
+    const user = await db.User.findByPk(userId, {
+      attributes: ['id', 'username', 'status', 'isActive', 'suspendedUntil', 'banReason', 'tokenVersion']
+    });
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
     
     return user;
   }

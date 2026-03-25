@@ -30,6 +30,9 @@ const adminRoutes = require('./modules/admin/admin.routes');
 const chatbotRoutes = require('./modules/chatbot/chatbot.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 
+// Import the user status middleware
+const checkUserStatus = require('./middlewares/checkUserStatus');
+
 // API endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -38,6 +41,10 @@ app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// Apply user status check AFTER authentication routes
+// This will check if user is suspended/banned on every request
+app.use('/api', checkUserStatus);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
