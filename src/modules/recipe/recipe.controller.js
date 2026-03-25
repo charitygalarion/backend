@@ -137,3 +137,26 @@ exports.getPopularRecipes = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Add this after your other controller functions
+exports.generateFromIngredients = async (req, res) => {
+  try {
+    const { ingredients } = req.body;
+    
+    if (!ingredients || ingredients.length === 0) {
+      return res.status(400).json({ message: 'Please provide ingredients' });
+    }
+    
+    console.log('🍳 Generating Filipino recipe from:', ingredients);
+    
+    const generatedRecipe = await recipeService.generateFilipinoRecipe(ingredients);
+    
+    res.json({ 
+      success: true, 
+      recipe: generatedRecipe 
+    });
+  } catch (error) {
+    console.error('Generate recipe error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

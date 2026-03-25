@@ -121,16 +121,64 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
-// ============ NO ADMIN FUNCTIONS HERE ============
-// The following functions have been REMOVED from user.controller:
-// - getAllUsers
-// - deleteUser  
-// - getUserDetails
-// - suspendUser
-// - banUser
-// - warnUser
-// - restoreUser
-// 
-// These functions are now in admin.controller.js
+exports.saveGeneratedRecipe = async (req, res) => {
+  try {
+    const { recipe } = req.body;
+    const userId = req.user.id;
+    
+    // Save the generated recipe as a user's saved recipe
+    // This doesn't create a new recipe in the main recipes table
+    const savedRecipe = await userService.saveGeneratedRecipe(userId, recipe);
+    
+    res.json({ success: true, savedRecipe });
+  } catch (error) {
+    console.error('Save generated recipe error:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
 
+
+
+// Add these functions
+
+exports.saveGeneratedRecipe = async (req, res) => {
+  try {
+    const { recipe } = req.body;
+    const userId = req.user.id;
+    
+    const savedRecipe = await userService.saveGeneratedRecipe(userId, recipe);
+    
+    res.json({ 
+      success: true, 
+      recipe: savedRecipe 
+    });
+  } catch (error) {
+    console.error('Save generated recipe error:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.getUserGeneratedRecipes = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const recipes = await userService.getUserGeneratedRecipes(userId);
+    res.json(transformResponse(recipes));
+  } catch (error) {
+    console.error('Get user generated recipes error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.deleteUserGeneratedRecipe = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    await userService.deleteUserGeneratedRecipe(userId, id);
+    res.json({ message: 'Recipe deleted successfully' });
+  } catch (error) {
+    console.error('Delete user generated recipe error:', error);
+    res.status(404).json({ message: error.message });
+  }
+};
 module.exports = exports;

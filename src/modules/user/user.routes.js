@@ -21,6 +21,12 @@ router.route('/saved')
 
 router.route('/saved/:recipeId')
   .post(userController.toggleSaveRecipe);
+;
+
+// Add these routes
+router.post('/save-generated-recipe', protect, userController.saveGeneratedRecipe);
+router.get('/generated-recipes', protect, userController.getUserGeneratedRecipes);
+router.delete('/generated-recipes/:id', protect, userController.deleteUserGeneratedRecipe);
 
 // NO ADMIN ROUTES HERE - They are moved to admin module
 

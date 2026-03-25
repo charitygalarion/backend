@@ -17,6 +17,7 @@ router.get('/saved', protect, recipeController.getSavedRecipes);
 router.put('/:id/servings', protect, recipeController.adjustServingSize);
 
 router.post('/scan', protect, upload.single('image'), recipeController.scanIngredients);
+router.post('/generate-from-ingredients', protect, recipeController.generateFromIngredients);
 
 // Public route with param - should be AFTER specific routes
 router.get('/:id', recipeController.getRecipeById);

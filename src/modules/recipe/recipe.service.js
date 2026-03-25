@@ -598,6 +598,95 @@ async getPopularRecipes(limit = 6) {
   console.log(`✅ [RECIPE SERVICE] getPopularRecipes returning ${recipes.length} recipes`);
   return recipes;
 }
+
+
+// Add this method to the RecipeService class
+async generateFilipinoRecipe(ingredients) {
+  console.log('🍳 Generating Filipino recipe from ingredients:', ingredients);
+  
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  
+  const prompt = `You are a Filipino chef. Create an authentic Filipino recipe using these ingredients: ${ingredients.join(', ')}.
+
+Return ONLY a valid JSON object with this exact structure, no other text:
+{
+  "title": "Recipe Name (in Filipino or English)",
+  "description": "Brief description of the dish (1-2 sentences)",
+  "mealType": "Breakfast" or "Lunch" or "Dinner" or "Snack",
+  "difficulty": "Easy" or "Medium" or "Hard",
+  "prepTime": number (minutes),
+  "cookTime": number (minutes),
+  "servings": number (2, 4, 6, 8),
+  "ingredients": [
+    { "name": "ingredient name", "quantity": "amount", "unit": "unit" }
+  ],
+  "instructions": [
+    { "step": 1, "text": "instruction text" }
+  ]
+}
+
+Rules:
+- Must be an authentic Filipino dish
+- Use the provided ingredients as the main components
+- Suggest additional common Filipino ingredients if needed (garlic, onion, soy sauce, vinegar, etc.)
+- Include cooking instructions typical of Filipino cuisine (sautéing, simmering, etc.)
+- If ingredients don't match Filipino cooking, suggest the closest Filipino dish using available ingredients
+- Make sure quantities are realistic`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log('📝 Gemini response received');
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const recipeData = JSON.parse(jsonMatch[0]);
+      console.log('✅ Generated recipe:', recipeData.title);
+      return recipeData;
+    }
+    
+    console.log('⚠️ No JSON found, using fallback');
+    return this.getFallbackFilipinoRecipe(ingredients);
+    
+  } catch (error) {
+    console.error('❌ Gemini error:', error.message);
+    return this.getFallbackFilipinoRecipe(ingredients);
+  }
+}
+
+getFallbackFilipinoRecipe(ingredients) {
+  const mainIngredient = ingredients[0] || 'chicken';
+  return {
+    title: `${mainIngredient.charAt(0).toUpperCase() + mainIngredient.slice(1)} Adobo Style`,
+    description: `A delicious Filipino-style dish using ${ingredients.join(', ')}. Perfect with steamed rice.`,
+    mealType: "Dinner",
+    difficulty: "Medium",
+    prepTime: 15,
+    cookTime: 30,
+    servings: 4,
+    ingredients: [
+      ...ingredients.map(ing => ({ name: ing, quantity: "as needed", unit: "" })),
+      { name: "soy sauce", quantity: "1/2", unit: "cup" },
+      { name: "vinegar", quantity: "1/4", unit: "cup" },
+      { name: "garlic", quantity: "6", unit: "cloves" },
+      { name: "onion", quantity: "1", unit: "medium" },
+      { name: "bay leaves", quantity: "2", unit: "pieces" },
+      { name: "black pepper", quantity: "1", unit: "tsp" }
+    ],
+    instructions: [
+      { step: 1, text: "Sauté garlic and onion until fragrant." },
+      { step: 2, text: `Add ${ingredients.join(', ')} and cook until browned.` },
+      { step: 3, text: "Pour in soy sauce and vinegar. Do not stir. Bring to a boil." },
+      { step: 4, text: "Add bay leaves and black pepper. Simmer for 20-30 minutes." },
+      { step: 5, text: "Serve hot with steamed rice." }
+    ]
+  };
+}
 }
 
 module.exports = new RecipeService();
