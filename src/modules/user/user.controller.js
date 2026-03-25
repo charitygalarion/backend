@@ -6,7 +6,7 @@ const fs = require('fs');
 
 exports.getProfile = async (req, res) => {
   try {
-    const user = await userService.getProfile(req.user._id);
+    const user = await userService.getProfile(req.user.id);
     res.json(transformResponse(user));
   } catch (error) {
     console.error('Get profile error:', error);
@@ -53,7 +53,7 @@ exports.updateProfile = async (req, res) => {
     
     console.log('Update data:', updateData);
     
-    const user = await userService.updateProfile(req.user._id, updateData, imageFile);
+    const user = await userService.updateProfile(req.user.id, updateData, imageFile);
     
     res.json(transformResponse(user));
   } catch (error) {
@@ -66,7 +66,7 @@ exports.updateProfile = async (req, res) => {
 exports.toggleSaveRecipe = async (req, res) => {
   try {
     const { recipeId } = req.params;
-    const result = await userService.toggleSaveRecipe(req.user._id, recipeId);
+    const result = await userService.toggleSaveRecipe(req.user.id, recipeId);
     
     res.json({
       message: result.isSaved ? 'Recipe saved' : 'Recipe removed',
@@ -80,34 +80,11 @@ exports.toggleSaveRecipe = async (req, res) => {
 
 exports.getSavedRecipes = async (req, res) => {
   try {
-    const recipes = await userService.getSavedRecipes(req.user._id);
+    const recipes = await userService.getSavedRecipes(req.user.id);
     res.json(transformResponse(recipes));
   } catch (error) {
     console.error('Get saved recipes error:', error);
     res.status(500).json({ message: error.message });
-  }
-};
-
-// Admin only
-exports.getAllUsers = async (req, res) => {
-  try {
-    const { status } = req.query;
-    const users = await userService.getAllUsers({ status });
-    res.json(transformResponse(users));
-  } catch (error) {
-    console.error('Get all users error:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await userService.deleteUser(id);
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(404).json({ message: error.message });
   }
 };
 
@@ -122,7 +99,7 @@ exports.uploadAvatar = async (req, res) => {
     const avatarUrl = `/uploads/profiles/${req.file.filename}`;
     
     // Update user's avatar only
-    const user = await db.User.findByPk(req.user._id);
+    const user = await db.User.findByPk(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -144,59 +121,16 @@ exports.uploadAvatar = async (req, res) => {
   }
 };
 
-exports.getUserDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await userService.getUserDetails(id);
-    res.json(transformResponse(user));
-  } catch (error) {
-    res.status(404).json({ message: error.message });
-  }
-};
+// ============ NO ADMIN FUNCTIONS HERE ============
+// The following functions have been REMOVED from user.controller:
+// - getAllUsers
+// - deleteUser  
+// - getUserDetails
+// - suspendUser
+// - banUser
+// - warnUser
+// - restoreUser
+// 
+// These functions are now in admin.controller.js
 
-
-exports.suspendUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason, durationDays } = req.body;
-    
-    const user = await userService.suspendUser(id, req.user._id, reason, durationDays || 7);
-    res.json({ message: 'User suspended successfully', user: transformResponse(user) });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-exports.banUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-    
-    const user = await userService.banUser(id, req.user._id, reason);
-    res.json({ message: 'User banned successfully', user: transformResponse(user) });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-exports.warnUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-    
-    const result = await userService.warnUser(id, reason);
-    res.json({ message: 'User warned successfully', violationCount: result.violationCount });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-exports.restoreUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await userService.restoreUser(id, req.user._id);
-    res.json({ message: 'User restored successfully', user: transformResponse(user) });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
+module.exports = exports;

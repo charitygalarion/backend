@@ -6,11 +6,13 @@ const path = require('path');
 const geminiVision = require('../../services/geminiVision.service');
 
 class RecipeService {
+  
   async getAllRecipes(filters = {}) {
-    const { mealType, difficulty, search, limit = 20 } = filters;
+    const { mealType, difficulty, search, limit = 20, adminView = false } = filters;
     const where = {};
     
-    if (mealType) where.meal_type = mealType;
+    // Check your model - use the actual column names from your database
+    if (mealType) where.meal_type = mealType;  // Use snake_case if that's what your DB uses
     if (difficulty) where.difficulty = difficulty;
     
     if (search) {
@@ -41,163 +43,73 @@ class RecipeService {
           order: [['step_number', 'ASC']]
         }
       ],
-      order: [['created_at', 'DESC']],
+      order: [['created_at', 'DESC']],  // Use snake_case
       limit: parseInt(limit)
     });
     
-    return recipes;
-  }
-  
-  async getRecipeById(recipeId) {
-    const recipe = await db.Recipe.findByPk(recipeId, {
-      include: [
-        {
-          model: db.User,
-          as: 'creator',
-          attributes: ['username', 'email']
-        },
-        {
-          model: db.RecipeIngredient,
-          as: 'ingredients',
-          attributes: ['name', 'quantity', 'unit', 'sort_order'],
-          order: [['sort_order', 'ASC']]
-        },
-        {
-          model: db.Instruction,
-          as: 'instructions',
-          attributes: ['step_number', 'text'],
-          order: [['step_number', 'ASC']]
-        }
-      ]
-    });
-    
-    if (!recipe) {
-      throw new Error('Recipe not found');
+    if (adminView) {
+      console.log(`👑 Admin viewing recipe list - Views NOT incremented`);
     }
     
-    await recipe.increment('views');
-    
-    return recipe;
+    return recipes;
+  }
+
+async getRecipeById(recipeId, userId = null, userRole = null) {
+  const recipe = await db.Recipe.findByPk(recipeId, {
+    include: [
+      {
+        model: db.User,
+        as: 'creator',
+        attributes: ['username', 'email']
+      },
+      {
+        model: db.RecipeIngredient,
+        as: 'ingredients',
+        attributes: ['name', 'quantity', 'unit', 'sort_order'],
+        order: [['sort_order', 'ASC']]
+      },
+      {
+        model: db.Instruction,
+        as: 'instructions',
+        attributes: ['step_number', 'text'],
+        order: [['step_number', 'ASC']]
+      }
+    ]
+  });
+  
+  if (!recipe) {
+    throw new Error('Recipe not found');
   }
   
-async createRecipe(recipeData, userId, imageFile = null) {
+  // Log using model attributes
+  console.log('   Retrieved recipe model values:', {
+    prepTime: recipe.prepTime,
+    cookTime: recipe.cookTime,
+    servings: recipe.servings
+  });
+  
+  // Only increment views if it's NOT an admin user
+  if (userRole !== 'admin') {
+    await recipe.increment('views');
+    console.log(`📊 Views incremented for recipe: ${recipe.title} (User role: ${userRole || 'guest'})`);
+  } else {
+    console.log(`👑 Admin viewing recipe: ${recipe.title} - Views NOT incremented`);
+  }
+  
+  return recipe;
+}
+
+  async createRecipe(recipeData, userId, imageFile = null, userRole = null) {
   const title = recipeData.title;
   const description = recipeData.description || '';
-  const mealType = recipeData.mealType;
+  const mealType = recipeData.mealType || recipeData.meal_type;
   const difficulty = recipeData.difficulty;
   const isFilipino = recipeData.isFilipino !== undefined ? recipeData.isFilipino : true;
   
-  const prepTime = parseInt(recipeData.prepTime) || 0;
-  const cookTime = parseInt(recipeData.cookTime) || 0;
-  const servings = parseInt(recipeData.servings) || 4;
-  
-  let ingredients = [];
-  let instructions = [];
-  
-  if (recipeData.ingredients) {
-    try {
-      ingredients = typeof recipeData.ingredients === 'string' 
-        ? JSON.parse(recipeData.ingredients) 
-        : recipeData.ingredients;
-    } catch (e) {
-      console.error('Failed to parse ingredients:', e);
-    }
-  }
-  
-  if (recipeData.instructions) {
-    try {
-      instructions = typeof recipeData.instructions === 'string' 
-        ? JSON.parse(recipeData.instructions) 
-        : recipeData.instructions;
-    } catch (e) {
-      console.error('Failed to parse instructions:', e);
-    }
-  }
-  
-  if (!title || !title.trim()) throw new Error('Title is required');
-  if (!mealType) throw new Error('Meal type is required');
-  if (!difficulty) throw new Error('Difficulty is required');
-  
-  let imageUrl = null;
-  if (imageFile) {
-    imageUrl = `/uploads/recipes/${imageFile.filename}`;
-  }
-  
-  console.log('Creating recipe with:', {
-    title: title.trim(),
-    mealType: mealType,
-    prepTime: prepTime,
-    cookTime: cookTime,
-    servings: servings,
-    difficulty: difficulty
-  });
-  
-  // ✅ USE MODEL ATTRIBUTE NAMES
-  const recipe = await db.Recipe.create({
-    title: title.trim(),
-    description: description,
-    mealType: mealType,
-    prepTime: prepTime,
-    cookTime: cookTime,
-    servings: servings,
-    image: imageUrl,
-    difficulty: difficulty,
-    isFilipino: isFilipino,
-    createdBy: userId,
-    views: 0
-  });
-  
-  console.log('Recipe created with ID:', recipe.id);
-  
-  // Check what was actually saved
-  const saved = await db.Recipe.findByPk(recipe.id);
-  console.log('Saved values:', {
-    prepTime: saved.prepTime,
-    cookTime: saved.cookTime,
-    servings: saved.servings
-  });
-  
-  // Add ingredients
-  if (ingredients.length > 0) {
-    const recipeIngredients = ingredients.map((ing, index) => ({
-      recipeId: recipe.id,
-      name: ing.name,
-      quantity: ing.quantity || '',
-      unit: ing.unit || '',
-      sortOrder: index
-    }));
-    await db.RecipeIngredient.bulkCreate(recipeIngredients);
-  }
-  
-  // Add instructions
-  if (instructions.length > 0) {
-    const recipeInstructions = instructions.map((inst, index) => ({
-      recipeId: recipe.id,
-      stepNumber: inst.step || inst.step_number || index + 1,
-      text: inst.text || inst.description
-    }));
-    await db.Instruction.bulkCreate(recipeInstructions);
-  }
-  
-  return await this.getRecipeById(recipe.id);
-}
+  const prepTime = parseInt(recipeData.prepTime || recipeData.prep_time || 0);
+  const cookTime = parseInt(recipeData.cookTime || recipeData.cook_time || 0);
+  const servings = parseInt(recipeData.servings || 4);
 
-
-  async updateRecipe(recipeId, recipeData, imageFile = null) {
-    console.log('Updating recipe ID:', recipeId);
-    
-    const recipe = await db.Recipe.findByPk(recipeId);
-    
-    if (!recipe) {
-      throw new Error('Recipe not found');
-    }
-    
-    // Parse numbers
-    const prepTime = parseInt(recipeData.prepTime) || 0;
-    const cookTime = parseInt(recipeData.cookTime) || 0;
-    const servings = parseInt(recipeData.servings) || 4;
-    
-    // Parse ingredients and instructions
     let ingredients = [];
     let instructions = [];
     
@@ -221,58 +133,183 @@ async createRecipe(recipeData, userId, imageFile = null) {
       }
     }
     
-    // Handle image
-    let imageUrl = recipe.image;
+    if (!title || !title.trim()) throw new Error('Title is required');
+    if (!mealType) throw new Error('Meal type is required');
+    if (!difficulty) throw new Error('Difficulty is required');
+    
+    let imageUrl = null;
     if (imageFile) {
-      if (recipe.image) {
-        const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
       imageUrl = `/uploads/recipes/${imageFile.filename}`;
     }
     
-    // Update recipe
-    await recipe.update({
-      title: recipeData.title,
-      description: recipeData.description || '',
-      meal_type: recipeData.mealType,
-      prep_time: prepTime,
-      cook_time: cookTime,
+    console.log('Creating recipe with:', {
+      title: title.trim(),
+      mealType: mealType,
+      prepTime: prepTime,
+      cookTime: cookTime,
       servings: servings,
-      image: imageUrl,
-      difficulty: recipeData.difficulty,
-      is_filipino: recipeData.isFilipino !== undefined ? recipeData.isFilipino : true
+      difficulty: difficulty
     });
     
-    // Update ingredients
-    await db.RecipeIngredient.destroy({ where: { recipe_id: recipeId } });
+    // Use snake_case column names to match your database
+    const recipe = await db.Recipe.create({
+      title: title.trim(),
+      description: description,
+      meal_type: mealType,           // snake_case
+      prep_time: prepTime,           // snake_case
+      cook_time: cookTime,           // snake_case
+      servings: servings,
+      image: imageUrl,
+      difficulty: difficulty,
+      is_filipino: isFilipino,       // snake_case
+      created_by: userId,            // snake_case
+      views: 0
+    });
+    
+    console.log('Recipe created with ID:', recipe.id);
+    
+    // Add ingredients
     if (ingredients.length > 0) {
       const recipeIngredients = ingredients.map((ing, index) => ({
-        recipe_id: recipe.id,
+        recipe_id: recipe.id,        // snake_case
         name: ing.name,
         quantity: ing.quantity || '',
         unit: ing.unit || '',
-        sort_order: index
+        sort_order: index            // snake_case
       }));
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
     }
     
-    // Update instructions
-    await db.Instruction.destroy({ where: { recipe_id: recipeId } });
+    // Add instructions
     if (instructions.length > 0) {
       const recipeInstructions = instructions.map((inst, index) => ({
-        recipe_id: recipe.id,
-        step_number: inst.step || inst.step_number || index + 1,
+        recipe_id: recipe.id,        // snake_case
+        step_number: inst.step || inst.step_number || index + 1,  // snake_case
         text: inst.text || inst.description
       }));
       await db.Instruction.bulkCreate(recipeInstructions);
     }
     
-    return await this.getRecipeById(recipeId);
+    return await this.getRecipeById(recipe.id,userId,userRole);
+  }
+
+  async updateRecipe(recipeId, recipeData, imageFile = null, userId = null, userRole = null) {
+  console.log('🔧 [RECIPE SERVICE] updateRecipe called');
+  console.log('   Recipe ID:', recipeId);
+  console.log('   Recipe data keys:', Object.keys(recipeData));
+  
+  const recipe = await db.Recipe.findByPk(recipeId);
+  
+  if (!recipe) {
+    throw new Error('Recipe not found');
   }
   
+  // Log current values using MODEL attribute names (camelCase)
+  console.log('   Current recipe values:', {
+    title: recipe.title,
+    prepTime: recipe.prepTime,      // Use model attribute name
+    cookTime: recipe.cookTime,      // Use model attribute name
+    servings: recipe.servings
+  });
+  
+  // Parse numbers - handle both camelCase and snake_case input
+  const prepTime = parseInt(recipeData.prepTime || recipeData.prep_time || 0);
+  const cookTime = parseInt(recipeData.cookTime || recipeData.cook_time || 0);
+  const servings = parseInt(recipeData.servings || 4);
+  
+  console.log('   New values:', { prepTime, cookTime, servings });
+  
+  // Parse ingredients and instructions
+  let ingredients = [];
+  let instructions = [];
+  
+  if (recipeData.ingredients) {
+    try {
+      ingredients = typeof recipeData.ingredients === 'string' 
+        ? JSON.parse(recipeData.ingredients) 
+        : recipeData.ingredients;
+    } catch (e) {
+      console.error('Failed to parse ingredients:', e);
+    }
+  }
+  
+  if (recipeData.instructions) {
+    try {
+      instructions = typeof recipeData.instructions === 'string' 
+        ? JSON.parse(recipeData.instructions) 
+        : recipeData.instructions;
+    } catch (e) {
+      console.error('Failed to parse instructions:', e);
+    }
+  }
+  
+  // Handle image
+  let imageUrl = recipe.image;
+  if (imageFile) {
+    if (recipe.image) {
+      const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
+      if (fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+    }
+    imageUrl = `/uploads/recipes/${imageFile.filename}`;
+  }
+  
+  // UPDATE using MODEL attribute names (camelCase), NOT database column names
+  const updateFields = {
+    title: recipeData.title,
+    description: recipeData.description || '',
+    mealType: recipeData.mealType || recipeData.meal_type,  // Use mealType, not meal_type
+    prepTime: prepTime,                                     // Use prepTime, not prep_time
+    cookTime: cookTime,                                     // Use cookTime, not cook_time
+    servings: servings,
+    image: imageUrl,
+    difficulty: recipeData.difficulty,
+    isFilipino: recipeData.isFilipino !== undefined ? recipeData.isFilipino : true  // Use isFilipino
+  };
+  
+  console.log('   Update fields (using model attributes):', updateFields);
+  
+  await recipe.update(updateFields);
+  
+  console.log('✅ Recipe updated in database');
+  
+  // Verify the update - now using MODEL attribute names
+  const verified = await db.Recipe.findByPk(recipeId);
+  console.log('   Verified updated values (model attributes):', {
+    prepTime: verified.prepTime,    // Should show the new value
+    cookTime: verified.cookTime,    // Should show the new value
+    servings: verified.servings
+  });
+  
+  // Update ingredients - use snake_case for database columns
+  await db.RecipeIngredient.destroy({ where: { recipe_id: recipeId } });
+  if (ingredients.length > 0) {
+    const recipeIngredients = ingredients.map((ing, index) => ({
+      recipe_id: recipe.id,
+      name: ing.name,
+      quantity: ing.quantity || '',
+      unit: ing.unit || '',
+      sort_order: index
+    }));
+    await db.RecipeIngredient.bulkCreate(recipeIngredients);
+  }
+  
+  // Update instructions - use snake_case for database columns
+  await db.Instruction.destroy({ where: { recipe_id: recipeId } });
+  if (instructions.length > 0) {
+    const recipeInstructions = instructions.map((inst, index) => ({
+      recipe_id: recipe.id,
+      step_number: inst.step || inst.step_number || index + 1,
+      text: inst.text || inst.description
+    }));
+    await db.Instruction.bulkCreate(recipeInstructions);
+  }
+  
+  // Return the updated recipe WITHOUT incrementing views
+  return await this.getRecipeById(recipeId, userId, userRole);
+}
+
   async deleteRecipe(recipeId) {
     console.log('Deleting recipe ID:', recipeId);
     const recipe = await db.Recipe.findByPk(recipeId);

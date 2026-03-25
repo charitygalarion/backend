@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../../middlewares/auth.middleware');
+const { protect } = require('../../middlewares/auth.middleware');
 const { uploadProfileImage } = require('../../config/upload');
 const userController = require('./user.controller');
 
@@ -22,17 +22,6 @@ router.route('/saved')
 router.route('/saved/:recipeId')
   .post(userController.toggleSaveRecipe);
 
-// Admin routes (require admin role)
-router.use(admin);
-
-router.route('/')
-  .get(userController.getAllUsers);
-
-router.get('/:id', userController.getUserDetails);
-router.delete('/:id', userController.deleteUser);
-router.put('/:id/suspend', userController.suspendUser);
-router.put('/:id/ban', userController.banUser);
-router.put('/:id/warn', userController.warnUser);
-router.put('/:id/restore', userController.restoreUser);
+// NO ADMIN ROUTES HERE - They are moved to admin module
 
 module.exports = router;
