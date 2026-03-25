@@ -5,56 +5,68 @@ const path = require('path');
 
 const geminiVision = require('../../services/geminiVision.service');
 
+console.log('🔧 INSTRUCTION MODEL DEBUG:');
+console.log('Instruction model attributes:', Object.keys(db.Instruction.rawAttributes));
+console.log('🔧 RECIPE MODEL DEBUG:');
+console.log('Recipe model attributes:', Object.keys(db.Recipe.rawAttributes));
+
 class RecipeService {
   
-  async getAllRecipes(filters = {}) {
-    const { mealType, difficulty, search, limit = 20, adminView = false } = filters;
-    const where = {};
-    
-    // Check your model - use the actual column names from your database
-    if (mealType) where.meal_type = mealType;  // Use snake_case if that's what your DB uses
-    if (difficulty) where.difficulty = difficulty;
-    
-    if (search) {
-      where[Op.or] = [
-        { title: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
-      ];
-    }
-    
-    const recipes = await db.Recipe.findAll({
-      where,
-      include: [
-        {
-          model: db.User,
-          as: 'creator',
-          attributes: ['username', 'email']
-        },
-        {
-          model: db.RecipeIngredient,
-          as: 'ingredients',
-          attributes: ['name', 'quantity', 'unit', 'sort_order'],
-          order: [['sort_order', 'ASC']]
-        },
-        {
-          model: db.Instruction,
-          as: 'instructions',
-          attributes: ['step_number', 'text'],
-          order: [['step_number', 'ASC']]
-        }
-      ],
-      order: [['created_at', 'DESC']],  // Use snake_case
-      limit: parseInt(limit)
-    });
-    
-    if (adminView) {
-      console.log(`👑 Admin viewing recipe list - Views NOT incremented`);
-    }
-    
-    return recipes;
+ async getAllRecipes(filters = {}) {
+  console.log('📖 [RECIPE SERVICE] getAllRecipes called');
+  console.log('   Filters:', filters);
+  
+  const { mealType, difficulty, search, limit = 20, adminView = false } = filters;
+  const where = {};
+  
+  if (mealType) where.mealType = mealType;
+  if (difficulty) where.difficulty = difficulty;
+  
+  if (search) {
+    where[Op.or] = [
+      { title: { [Op.like]: `%${search}%` } },
+      { description: { [Op.like]: `%${search}%` } }
+    ];
   }
+  
+  const recipes = await db.Recipe.findAll({
+    where,
+    include: [
+      {
+        model: db.User,
+        as: 'creator',
+        attributes: ['username', 'email']
+      },
+      {
+        model: db.RecipeIngredient,
+        as: 'ingredients',
+        attributes: ['name', 'quantity', 'unit', 'sort_order'],  // Use sort_order (snake_case)
+        order: [['sort_order', 'ASC']]  // Use sort_order (snake_case)
+      },
+      {
+        model: db.Instruction,
+        as: 'instructions',
+        attributes: ['step_number', 'text'],  // Use step_number (snake_case)
+        order: [['step_number', 'ASC']]  // Use step_number (snake_case)
+      }
+    ],
+    order: [['created_at', 'DESC']],
+    limit: parseInt(limit)
+  });
+  
+  if (adminView) {
+    console.log(`👑 Admin viewing recipe list - Views NOT incremented`);
+  }
+  
+  console.log(`✅ [RECIPE SERVICE] getAllRecipes returning ${recipes.length} recipes`);
+  return recipes;
+}
 
 async getRecipeById(recipeId, userId = null, userRole = null) {
+  console.log('🔍 [RECIPE SERVICE] getRecipeById called');
+  console.log('   Recipe ID:', recipeId);
+  console.log('   User role:', userRole);
+  
   const recipe = await db.Recipe.findByPk(recipeId, {
     include: [
       {
@@ -78,20 +90,19 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
   });
   
   if (!recipe) {
+    console.log('❌ [RECIPE SERVICE] Recipe not found:', recipeId);
     throw new Error('Recipe not found');
   }
   
-  // Log using model attributes
-  console.log('   Retrieved recipe model values:', {
+  console.log('   Retrieved recipe values:', {
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
     servings: recipe.servings
   });
   
-  // Only increment views if it's NOT an admin user
   if (userRole !== 'admin') {
     await recipe.increment('views');
-    console.log(`📊 Views incremented for recipe: ${recipe.title} (User role: ${userRole || 'guest'})`);
+    console.log(`📊 Views incremented for recipe: ${recipe.title}`);
   } else {
     console.log(`👑 Admin viewing recipe: ${recipe.title} - Views NOT incremented`);
   }
@@ -100,15 +111,20 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
 }
 
   async createRecipe(recipeData, userId, imageFile = null, userRole = null) {
-  const title = recipeData.title;
-  const description = recipeData.description || '';
-  const mealType = recipeData.mealType || recipeData.meal_type;
-  const difficulty = recipeData.difficulty;
-  const isFilipino = recipeData.isFilipino !== undefined ? recipeData.isFilipino : true;
-  
-  const prepTime = parseInt(recipeData.prepTime || recipeData.prep_time || 0);
-  const cookTime = parseInt(recipeData.cookTime || recipeData.cook_time || 0);
-  const servings = parseInt(recipeData.servings || 4);
+    console.log('📝 [RECIPE SERVICE] createRecipe called');
+    console.log('   User ID:', userId);
+    console.log('   User role:', userRole);
+    console.log('   Has image:', !!imageFile);
+    
+    const title = recipeData.title;
+    const description = recipeData.description || '';
+    const mealType = recipeData.mealType;
+    const difficulty = recipeData.difficulty;
+    const isFilipino = recipeData.isFilipino !== undefined ? recipeData.isFilipino : true;
+    
+    const prepTime = parseInt(recipeData.prepTime) || 0;
+    const cookTime = parseInt(recipeData.cookTime) || 0;
+    const servings = parseInt(recipeData.servings) || 4;
 
     let ingredients = [];
     let instructions = [];
@@ -118,6 +134,7 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
         ingredients = typeof recipeData.ingredients === 'string' 
           ? JSON.parse(recipeData.ingredients) 
           : recipeData.ingredients;
+        console.log('   Parsed ingredients count:', ingredients.length);
       } catch (e) {
         console.error('Failed to parse ingredients:', e);
       }
@@ -128,6 +145,7 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
         instructions = typeof recipeData.instructions === 'string' 
           ? JSON.parse(recipeData.instructions) 
           : recipeData.instructions;
+        console.log('   Parsed instructions count:', instructions.length);
       } catch (e) {
         console.error('Failed to parse instructions:', e);
       }
@@ -142,7 +160,7 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
       imageUrl = `/uploads/recipes/${imageFile.filename}`;
     }
     
-    console.log('Creating recipe with:', {
+    console.log('   Creating recipe with values:', {
       title: title.trim(),
       mealType: mealType,
       prepTime: prepTime,
@@ -151,170 +169,213 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
       difficulty: difficulty
     });
     
-    // Use snake_case column names to match your database
+    // Use model attribute names (camelCase)
     const recipe = await db.Recipe.create({
       title: title.trim(),
       description: description,
-      meal_type: mealType,           // snake_case
-      prep_time: prepTime,           // snake_case
-      cook_time: cookTime,           // snake_case
+      mealType: mealType,
+      prepTime: prepTime,
+      cookTime: cookTime,
       servings: servings,
       image: imageUrl,
       difficulty: difficulty,
-      is_filipino: isFilipino,       // snake_case
-      created_by: userId,            // snake_case
+      isFilipino: isFilipino,
+      createdBy: userId,
       views: 0
     });
     
-    console.log('Recipe created with ID:', recipe.id);
+    console.log('✅ Recipe created with ID:', recipe.id);
     
-    // Add ingredients
+    // Add ingredients - using model attribute names (camelCase)
     if (ingredients.length > 0) {
       const recipeIngredients = ingredients.map((ing, index) => ({
-        recipe_id: recipe.id,        // snake_case
-        name: ing.name,
+        recipeId: recipe.id,
+        name: ing.name || '',
         quantity: ing.quantity || '',
         unit: ing.unit || '',
-        sort_order: index            // snake_case
+        sortOrder: index
       }));
+      console.log('   Adding ingredients (camelCase):', recipeIngredients);
       await db.RecipeIngredient.bulkCreate(recipeIngredients);
+      console.log('   ✅ Ingredients added');
     }
     
-    // Add instructions
+    // Add instructions - using model attribute names (camelCase)
     if (instructions.length > 0) {
-      const recipeInstructions = instructions.map((inst, index) => ({
-        recipe_id: recipe.id,        // snake_case
-        step_number: inst.step || inst.step_number || index + 1,  // snake_case
-        text: inst.text || inst.description
-      }));
-      await db.Instruction.bulkCreate(recipeInstructions);
+      console.log('   🔍 INSTRUCTION DEBUG:');
+      console.log('   Raw instructions data:', JSON.stringify(instructions, null, 2));
+      
+      const recipeInstructions = instructions.map((inst, index) => {
+        let stepNumber = index + 1;
+        
+        if (inst.step && !isNaN(parseInt(inst.step))) {
+          stepNumber = parseInt(inst.step);
+          console.log(`     Using step: ${stepNumber}`);
+        } else if (inst.step_number && !isNaN(parseInt(inst.step_number))) {
+          stepNumber = parseInt(inst.step_number);
+          console.log(`     Using step_number: ${stepNumber}`);
+        } else {
+          console.log(`     Using index: ${stepNumber}`);
+        }
+        
+        return {
+          recipeId: recipe.id,
+          stepNumber: stepNumber,
+          text: inst.text || inst.description || ''
+        };
+      });
+      
+      console.log('   Adding instructions (camelCase):', recipeInstructions);
+      
+      for (let i = 0; i < recipeInstructions.length; i++) {
+        try {
+          const created = await db.Instruction.create(recipeInstructions[i]);
+          console.log(`   ✅ Instruction ${i} created:`, created.toJSON());
+        } catch (err) {
+          console.error(`   ❌ Failed to create instruction ${i}:`, err.message);
+          console.error(`   Failed instruction data:`, recipeInstructions[i]);
+          throw err;
+        }
+      }
     }
     
-    return await this.getRecipeById(recipe.id,userId,userRole);
+    console.log('✅ [RECIPE SERVICE] createRecipe completed');
+    const createdRecipe = await this.getRecipeById(recipe.id, userId, userRole);
+    console.log('   Created recipe values:', {
+      prepTime: createdRecipe.prepTime,
+      cookTime: createdRecipe.cookTime,
+      servings: createdRecipe.servings
+    });
+    return createdRecipe;
   }
 
   async updateRecipe(recipeId, recipeData, imageFile = null, userId = null, userRole = null) {
-  console.log('🔧 [RECIPE SERVICE] updateRecipe called');
-  console.log('   Recipe ID:', recipeId);
-  console.log('   Recipe data keys:', Object.keys(recipeData));
-  
-  const recipe = await db.Recipe.findByPk(recipeId);
-  
-  if (!recipe) {
-    throw new Error('Recipe not found');
-  }
-  
-  // Log current values using MODEL attribute names (camelCase)
-  console.log('   Current recipe values:', {
-    title: recipe.title,
-    prepTime: recipe.prepTime,      // Use model attribute name
-    cookTime: recipe.cookTime,      // Use model attribute name
-    servings: recipe.servings
-  });
-  
-  // Parse numbers - handle both camelCase and snake_case input
-  const prepTime = parseInt(recipeData.prepTime || recipeData.prep_time || 0);
-  const cookTime = parseInt(recipeData.cookTime || recipeData.cook_time || 0);
-  const servings = parseInt(recipeData.servings || 4);
-  
-  console.log('   New values:', { prepTime, cookTime, servings });
-  
-  // Parse ingredients and instructions
-  let ingredients = [];
-  let instructions = [];
-  
-  if (recipeData.ingredients) {
-    try {
-      ingredients = typeof recipeData.ingredients === 'string' 
-        ? JSON.parse(recipeData.ingredients) 
-        : recipeData.ingredients;
-    } catch (e) {
-      console.error('Failed to parse ingredients:', e);
-    }
-  }
-  
-  if (recipeData.instructions) {
-    try {
-      instructions = typeof recipeData.instructions === 'string' 
-        ? JSON.parse(recipeData.instructions) 
-        : recipeData.instructions;
-    } catch (e) {
-      console.error('Failed to parse instructions:', e);
-    }
-  }
-  
-  // Handle image
-  let imageUrl = recipe.image;
-  if (imageFile) {
-    if (recipe.image) {
-      const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
-      if (fs.existsSync(oldImagePath)) {
-        fs.unlinkSync(oldImagePath);
-      }
-    }
-    imageUrl = `/uploads/recipes/${imageFile.filename}`;
-  }
-  
-  // UPDATE using MODEL attribute names (camelCase), NOT database column names
-  const updateFields = {
-    title: recipeData.title,
-    description: recipeData.description || '',
-    mealType: recipeData.mealType || recipeData.meal_type,  // Use mealType, not meal_type
-    prepTime: prepTime,                                     // Use prepTime, not prep_time
-    cookTime: cookTime,                                     // Use cookTime, not cook_time
-    servings: servings,
-    image: imageUrl,
-    difficulty: recipeData.difficulty,
-    isFilipino: recipeData.isFilipino !== undefined ? recipeData.isFilipino : true  // Use isFilipino
-  };
-  
-  console.log('   Update fields (using model attributes):', updateFields);
-  
-  await recipe.update(updateFields);
-  
-  console.log('✅ Recipe updated in database');
-  
-  // Verify the update - now using MODEL attribute names
-  const verified = await db.Recipe.findByPk(recipeId);
-  console.log('   Verified updated values (model attributes):', {
-    prepTime: verified.prepTime,    // Should show the new value
-    cookTime: verified.cookTime,    // Should show the new value
-    servings: verified.servings
-  });
-  
-  // Update ingredients - use snake_case for database columns
-  await db.RecipeIngredient.destroy({ where: { recipe_id: recipeId } });
-  if (ingredients.length > 0) {
-    const recipeIngredients = ingredients.map((ing, index) => ({
-      recipe_id: recipe.id,
-      name: ing.name,
-      quantity: ing.quantity || '',
-      unit: ing.unit || '',
-      sort_order: index
-    }));
-    await db.RecipeIngredient.bulkCreate(recipeIngredients);
-  }
-  
-  // Update instructions - use snake_case for database columns
-  await db.Instruction.destroy({ where: { recipe_id: recipeId } });
-  if (instructions.length > 0) {
-    const recipeInstructions = instructions.map((inst, index) => ({
-      recipe_id: recipe.id,
-      step_number: inst.step || inst.step_number || index + 1,
-      text: inst.text || inst.description
-    }));
-    await db.Instruction.bulkCreate(recipeInstructions);
-  }
-  
-  // Return the updated recipe WITHOUT incrementing views
-  return await this.getRecipeById(recipeId, userId, userRole);
-}
-
-  async deleteRecipe(recipeId) {
-    console.log('Deleting recipe ID:', recipeId);
+    console.log('🔧 [RECIPE SERVICE] updateRecipe called');
+    console.log('   Recipe ID:', recipeId);
+    
     const recipe = await db.Recipe.findByPk(recipeId);
     
     if (!recipe) {
+      console.log('❌ Recipe not found:', recipeId);
+      throw new Error('Recipe not found');
+    }
+    
+    // Use model attribute names (camelCase)
+    console.log('   Current recipe values:', {
+      title: recipe.title,
+      prepTime: recipe.prepTime,
+      cookTime: recipe.cookTime,
+      servings: recipe.servings
+    });
+    
+    const prepTime = parseInt(recipeData.prepTime) || 0;
+    const cookTime = parseInt(recipeData.cookTime) || 0;
+    const servings = parseInt(recipeData.servings) || 4;
+    
+    console.log('   New values:', { prepTime, cookTime, servings });
+    
+    let ingredients = [];
+    let instructions = [];
+    
+    if (recipeData.ingredients) {
+      try {
+        ingredients = typeof recipeData.ingredients === 'string' 
+          ? JSON.parse(recipeData.ingredients) 
+          : recipeData.ingredients;
+        console.log('   Parsed ingredients count:', ingredients.length);
+      } catch (e) {
+        console.error('Failed to parse ingredients:', e);
+      }
+    }
+    
+    if (recipeData.instructions) {
+      try {
+        instructions = typeof recipeData.instructions === 'string' 
+          ? JSON.parse(recipeData.instructions) 
+          : recipeData.instructions;
+        console.log('   Parsed instructions count:', instructions.length);
+      } catch (e) {
+        console.error('Failed to parse instructions:', e);
+      }
+    }
+    
+    let imageUrl = recipe.image;
+    if (imageFile) {
+      console.log('   Updating image');
+      if (recipe.image) {
+        const oldImagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+          console.log('   Old image deleted');
+        }
+      }
+      imageUrl = `/uploads/recipes/${imageFile.filename}`;
+    }
+    
+    // Use model attribute names (camelCase)
+    await recipe.update({
+      title: recipeData.title,
+      description: recipeData.description || '',
+      mealType: recipeData.mealType,
+      prepTime: prepTime,
+      cookTime: cookTime,
+      servings: servings,
+      image: imageUrl,
+      difficulty: recipeData.difficulty,
+      isFilipino: recipeData.isFilipino !== undefined ? recipeData.isFilipino : true
+    });
+    
+    console.log('✅ Recipe updated in database');
+    
+    // Update ingredients - using model attribute names (camelCase)
+    await db.RecipeIngredient.destroy({ where: { recipeId: recipeId } });
+    if (ingredients.length > 0) {
+      const recipeIngredients = ingredients.map((ing, index) => ({
+        recipeId: recipe.id,
+        name: ing.name,
+        quantity: ing.quantity || '',
+        unit: ing.unit || '',
+        sortOrder: index
+      }));
+      await db.RecipeIngredient.bulkCreate(recipeIngredients);
+      console.log('   ✅ Ingredients updated:', ingredients.length);
+    }
+    
+    // Update instructions - using model attribute names (camelCase)
+    await db.Instruction.destroy({ where: { recipeId: recipeId } });
+    if (instructions.length > 0) {
+      const recipeInstructions = instructions.map((inst, index) => {
+        let stepNumber = index + 1;
+        
+        if (inst.step && !isNaN(parseInt(inst.step))) {
+          stepNumber = parseInt(inst.step);
+        } else if (inst.step_number && !isNaN(parseInt(inst.step_number))) {
+          stepNumber = parseInt(inst.step_number);
+        }
+        
+        return {
+          recipeId: recipe.id,
+          stepNumber: stepNumber,
+          text: inst.text || inst.description
+        };
+      });
+      
+      await db.Instruction.bulkCreate(recipeInstructions);
+      console.log('   ✅ Instructions updated:', instructions.length);
+    }
+    
+    console.log('✅ [RECIPE SERVICE] updateRecipe completed');
+    return await this.getRecipeById(recipeId, userId, userRole);
+  }
+
+  async deleteRecipe(recipeId) {
+    console.log('🗑️ [RECIPE SERVICE] deleteRecipe called');
+    console.log('   Recipe ID:', recipeId);
+    
+    const recipe = await db.Recipe.findByPk(recipeId);
+    
+    if (!recipe) {
+      console.log('❌ Recipe not found:', recipeId);
       throw new Error('Recipe not found');
     }
     
@@ -322,18 +383,22 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
       const imagePath = path.join(__dirname, '../../../uploads/recipes', path.basename(recipe.image));
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
+        console.log('   Image deleted');
       }
     }
     
     await recipe.destroy();
+    console.log('✅ Recipe deleted successfully');
     return true;
   }
   
   async findRecipesByIngredients(ingredientsList, mealType = null) {
+    console.log('🔍 [RECIPE SERVICE] findRecipesByIngredients called');
+    
     const searchIngredients = ingredientsList.map(ing => ing.toLowerCase());
     
     const where = {};
-    if (mealType) where.meal_type = mealType;
+    if (mealType) where.mealType = mealType;
     
     const recipes = await db.Recipe.findAll({
       where,
@@ -385,6 +450,8 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
   }
   
   async adjustServings(recipeId, newServings) {
+    console.log('🔧 [RECIPE SERVICE] adjustServings called');
+    
     const recipe = await this.getRecipeById(recipeId);
     
     if (!recipe) {
@@ -412,9 +479,11 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
   }
   
   async getSavedRecipes(userId) {
+    console.log('📚 [RECIPE SERVICE] getSavedRecipes called');
+    
     try {
       const savedRecipes = await db.UserSavedRecipe.findAll({
-        where: { user_id: userId },
+        where: { userId: userId },
         include: [{
           model: db.Recipe,
           as: 'recipe',
@@ -432,14 +501,10 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
             }
           ]
         }],
-        order: [['saved_at', 'DESC']]
+        order: [['savedAt', 'DESC']]
       });
       
-      const validRecipes = savedRecipes
-        .map(sr => sr.recipe)
-        .filter(recipe => recipe !== null);
-      
-      return validRecipes;
+      return savedRecipes.map(sr => sr.recipe).filter(recipe => recipe !== null);
     } catch (error) {
       console.error('Error in getSavedRecipes:', error);
       return [];
