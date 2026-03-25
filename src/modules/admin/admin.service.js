@@ -26,13 +26,13 @@ class AdminService {
       console.log('   User role:', user.role);
       console.log('   User status:', user.status);
       
-      // Get saved recipes count
+      // Get saved recipes count - using snake_case
       const savedRecipesCount = await db.UserSavedRecipe.count({
         where: { user_id: userId }
       });
       console.log('   Saved recipes count:', savedRecipesCount);
       
-      // Get recipes created by user
+      // Get recipes created by user - using snake_case
       const recipes = await db.Recipe.findAll({
         where: { created_by: userId },
         attributes: ['id', 'title', 'image', 'created_at'],
@@ -55,6 +55,7 @@ class AdminService {
       return result;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -118,6 +119,7 @@ class AdminService {
       return usersWithCount;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] getAllUsers error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -202,6 +204,7 @@ class AdminService {
       return result;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] getStats error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -267,6 +270,7 @@ class AdminService {
       return result;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] getDashboardData error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -296,6 +300,7 @@ class AdminService {
       return true;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] deleteUser error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -316,6 +321,7 @@ class AdminService {
       }
       
       console.log('   User found:', user.username);
+      console.log('   User role:', user.role);
       
       if (user.role === 'admin') {
         console.log('❌ [ADMIN SERVICE] Cannot suspend admin user');
@@ -326,7 +332,28 @@ class AdminService {
       suspendedUntil.setDate(suspendedUntil.getDate() + durationDays);
       console.log('   Suspended until:', suspendedUntil);
       
-      const history = user.moderationHistory || [];
+      // Handle moderationHistory - ensure it's an array
+      let history = [];
+      if (user.moderationHistory) {
+        if (Array.isArray(user.moderationHistory)) {
+          history = user.moderationHistory;
+          console.log('   moderationHistory is array, length:', history.length);
+        } else if (typeof user.moderationHistory === 'string') {
+          try {
+            history = JSON.parse(user.moderationHistory);
+            console.log('   moderationHistory parsed from string, length:', history.length);
+          } catch (e) {
+            console.log('   Failed to parse moderationHistory, using empty array');
+            history = [];
+          }
+        } else {
+          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
+          history = [];
+        }
+      } else {
+        console.log('   moderationHistory is null/undefined, using empty array');
+      }
+      
       history.push({
         action: 'suspended',
         reason,
@@ -352,6 +379,7 @@ class AdminService {
       return user;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] suspendUser error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -371,13 +399,35 @@ class AdminService {
       }
       
       console.log('   User found:', user.username);
+      console.log('   User role:', user.role);
       
       if (user.role === 'admin') {
         console.log('❌ [ADMIN SERVICE] Cannot ban admin user');
         throw new Error('Cannot ban admin users');
       }
       
-      const history = user.moderationHistory || [];
+      // Handle moderationHistory - ensure it's an array
+      let history = [];
+      if (user.moderationHistory) {
+        if (Array.isArray(user.moderationHistory)) {
+          history = user.moderationHistory;
+          console.log('   moderationHistory is array, length:', history.length);
+        } else if (typeof user.moderationHistory === 'string') {
+          try {
+            history = JSON.parse(user.moderationHistory);
+            console.log('   moderationHistory parsed from string, length:', history.length);
+          } catch (e) {
+            console.log('   Failed to parse moderationHistory, using empty array');
+            history = [];
+          }
+        } else {
+          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
+          history = [];
+        }
+      } else {
+        console.log('   moderationHistory is null/undefined, using empty array');
+      }
+      
       history.push({
         action: 'banned',
         reason,
@@ -403,10 +453,11 @@ class AdminService {
       return user;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] banUser error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
-
+ 
   async warnUser(userId, reason) {
     console.log('⚠️ [ADMIN SERVICE] warnUser called');
     console.log('   User ID:', userId);
@@ -422,16 +473,41 @@ class AdminService {
       
       console.log('   User found:', user.username);
       console.log('   Current violation count:', user.violationCount || 0);
+      console.log('   ModerationHistory type:', typeof user.moderationHistory);
+      console.log('   ModerationHistory value:', user.moderationHistory);
       
       const violationCount = (user.violationCount || 0) + 1;
       
-      const history = user.moderationHistory || [];
+      // Handle moderationHistory - ensure it's an array
+      let history = [];
+      if (user.moderationHistory) {
+        if (Array.isArray(user.moderationHistory)) {
+          history = user.moderationHistory;
+          console.log('   moderationHistory is array, length:', history.length);
+        } else if (typeof user.moderationHistory === 'string') {
+          try {
+            history = JSON.parse(user.moderationHistory);
+            console.log('   moderationHistory parsed from string, length:', history.length);
+          } catch (e) {
+            console.log('   Failed to parse moderationHistory, using empty array');
+            history = [];
+          }
+        } else {
+          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
+          history = [];
+        }
+      } else {
+        console.log('   moderationHistory is null/undefined, using empty array');
+      }
+      
       history.push({
         action: 'warning',
         reason,
         date: new Date(),
         warningNumber: violationCount
       });
+      
+      console.log('   Updated history length:', history.length);
       
       await user.update({
         violationCount,
@@ -448,6 +524,7 @@ class AdminService {
       return { user, violationCount };
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] warnUser error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
@@ -468,7 +545,28 @@ class AdminService {
       console.log('   User found:', user.username);
       console.log('   Previous status:', user.status);
       
-      const history = user.moderationHistory || [];
+      // Handle moderationHistory - ensure it's an array
+      let history = [];
+      if (user.moderationHistory) {
+        if (Array.isArray(user.moderationHistory)) {
+          history = user.moderationHistory;
+          console.log('   moderationHistory is array, length:', history.length);
+        } else if (typeof user.moderationHistory === 'string') {
+          try {
+            history = JSON.parse(user.moderationHistory);
+            console.log('   moderationHistory parsed from string, length:', history.length);
+          } catch (e) {
+            console.log('   Failed to parse moderationHistory, using empty array');
+            history = [];
+          }
+        } else {
+          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
+          history = [];
+        }
+      } else {
+        console.log('   moderationHistory is null/undefined, using empty array');
+      }
+      
       history.push({
         action: 'restored',
         adminId,
@@ -496,9 +594,10 @@ class AdminService {
       return user;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] restoreUser error:', error.message);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
 }
-
+ 
 module.exports = new AdminService();
