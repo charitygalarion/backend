@@ -110,7 +110,7 @@ module.exports = (sequelize, DataTypes) => {
       field: 'last_violation'
     },
     
-    // ✅ Token Version for session invalidation (NEW)
+    // ✅ Token Version for session invalidation
     tokenVersion: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
@@ -155,10 +155,11 @@ module.exports = (sequelize, DataTypes) => {
       as: 'savedRecipes'
     });
     
-    User.hasMany(db.UserPreference, {
-      foreignKey: 'user_id',
-      as: 'preferences'
-    });
+    // UserPreference association removed
+    // User.hasMany(db.UserPreference, {
+    //   foreignKey: 'user_id',
+    //   as: 'preferences'
+    // });
   };
 
   return User;
