@@ -19,36 +19,14 @@ exports.updateProfile = async (req, res) => {
     console.log('Update profile request body:', req.body);
     console.log('Update profile file:', req.file);
     
-    const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = req.body;
+    const { username, email, firstName, lastName } = req.body; // Remove mealTypes, dietaryRestrictions
     const imageFile = req.file;
-    
-    // Parse mealTypes and dietaryRestrictions if they're strings
-    let parsedMealTypes = mealTypes;
-    let parsedDietaryRestrictions = dietaryRestrictions;
-    
-    if (mealTypes && typeof mealTypes === 'string') {
-      try {
-        parsedMealTypes = JSON.parse(mealTypes);
-      } catch (e) {
-        parsedMealTypes = mealTypes.split(',').map(m => m.trim());
-      }
-    }
-    
-    if (dietaryRestrictions && typeof dietaryRestrictions === 'string') {
-      try {
-        parsedDietaryRestrictions = JSON.parse(dietaryRestrictions);
-      } catch (e) {
-        parsedDietaryRestrictions = dietaryRestrictions.split(',').map(d => d.trim());
-      }
-    }
     
     const updateData = {
       username,
       email,
       firstName,
-      lastName,
-      mealTypes: parsedMealTypes,
-      dietaryRestrictions: parsedDietaryRestrictions
+      lastName
     };
     
     console.log('Update data:', updateData);
@@ -98,13 +76,11 @@ exports.uploadAvatar = async (req, res) => {
     
     const avatarUrl = `/uploads/profiles/${req.file.filename}`;
     
-    // Update user's avatar only
     const user = await db.User.findByPk(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Delete old avatar if exists
     if (user.avatar) {
       const oldAvatarPath = path.join(__dirname, '../../../uploads/profiles', path.basename(user.avatar));
       if (fs.existsSync(oldAvatarPath)) {
@@ -120,8 +96,6 @@ exports.uploadAvatar = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-// Add these functions
 
 exports.saveGeneratedRecipe = async (req, res) => {
   try {
@@ -163,4 +137,3 @@ exports.deleteUserGeneratedRecipe = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
-module.exports = exports; 

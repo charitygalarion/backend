@@ -19,22 +19,17 @@ class UserService {
       attributes: ['recipeId']
     });
     
-    // Get user preferences
-    const preferences = await db.UserPreference.findAll({ where: { userId: user.id } });
-    
     const savedRecipeIds = savedRecipes.map(sr => sr.recipeId);
     
     return {
       ...user.toJSON(),
-      savedRecipes: savedRecipeIds,
-      mealTypes: preferences.filter(p => p.preferenceType === 'meal_type').map(p => p.value),
-      dietaryRestrictions: preferences.filter(p => p.preferenceType === 'dietary_restriction').map(p => p.value)
+      savedRecipes: savedRecipeIds
     };
   }
   
   async updateProfile(userId, updateData, imageFile = null) {
     try {
-      const { username, email, firstName, lastName, mealTypes, dietaryRestrictions } = updateData;
+      const { username, email, firstName, lastName } = updateData; // Remove mealTypes, dietaryRestrictions
       
       console.log('UserService.updateProfile called with:', { userId, updateData, hasImage: !!imageFile });
       
@@ -144,61 +139,53 @@ class UserService {
     return savedRecipes.map(sr => sr.recipe);
   }
 
-
-// Add these methods to UserService class
-
-async saveGeneratedRecipe(userId, recipeData) {
-  console.log('📝 Saving generated recipe for user:', userId);
-  console.log('Recipe:', recipeData.title);
-  
-  const recipe = await db.UserGeneratedRecipe.create({
-    userId,
-    title: recipeData.title,
-    description: recipeData.description,
-    mealType: recipeData.mealType,
-    difficulty: recipeData.difficulty,
-    prepTime: recipeData.prepTime || 0,
-    cookTime: recipeData.cookTime || 0,
-    servings: recipeData.servings || 4,
-    ingredients: recipeData.ingredients || [],
-    instructions: recipeData.instructions || [],
-    isFilipino: true
-  });
-  
-  console.log('✅ Generated recipe saved with ID:', recipe.id);
-  return recipe;
-}
-
-async getUserGeneratedRecipes(userId) {
-  console.log('📚 Getting user generated recipes for:', userId);
-  
-  const recipes = await db.UserGeneratedRecipe.findAll({
-    where: { userId },
-    order: [['created_at', 'DESC']]
-  });
-  
-  return recipes;
-}
-
-async deleteUserGeneratedRecipe(userId, recipeId) {
-  console.log('🗑️ Deleting user generated recipe:', recipeId);
-  
-  const recipe = await db.UserGeneratedRecipe.findOne({
-    where: { id: recipeId, userId }
-  });
-  
-  if (!recipe) {
-    throw new Error('Recipe not found');
+  async saveGeneratedRecipe(userId, recipeData) {
+    console.log('📝 Saving generated recipe for user:', userId);
+    console.log('Recipe:', recipeData.title);
+    
+    const recipe = await db.UserGeneratedRecipe.create({
+      userId,
+      title: recipeData.title,
+      description: recipeData.description,
+      mealType: recipeData.mealType,
+      difficulty: recipeData.difficulty,
+      prepTime: recipeData.prepTime || 0,
+      cookTime: recipeData.cookTime || 0,
+      servings: recipeData.servings || 4,
+      ingredients: recipeData.ingredients || [],
+      instructions: recipeData.instructions || [],
+      isFilipino: true
+    });
+    
+    console.log('✅ Generated recipe saved with ID:', recipe.id);
+    return recipe;
   }
-  
-  await recipe.destroy();
-  return true;
+
+  async getUserGeneratedRecipes(userId) {
+    console.log('📚 Getting user generated recipes for:', userId);
+    
+    const recipes = await db.UserGeneratedRecipe.findAll({
+      where: { userId },
+      order: [['created_at', 'DESC']]
+    });
+    
+    return recipes;
+  }
+
+  async deleteUserGeneratedRecipe(userId, recipeId) {
+    console.log('🗑️ Deleting user generated recipe:', recipeId);
+    
+    const recipe = await db.UserGeneratedRecipe.findOne({
+      where: { id: recipeId, userId }
+    });
+    
+    if (!recipe) {
+      throw new Error('Recipe not found');
+    }
+    
+    await recipe.destroy();
+    return true;
+  }
 }
-
-
-
-}
-
-
 
 module.exports = new UserService();
