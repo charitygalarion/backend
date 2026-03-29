@@ -7,22 +7,18 @@ class GeminiVisionService {
     this.url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
   }
 
-  async detectIngredients(imageBuffer) {
-    try {
-      if (!this.apiKey) {
-        console.log('⚠️ No Gemini API key, using mock ingredients');
-        return this.getMockIngredients();
-      }
+ async detectIngredients(imageBuffer) {
+  try {
+    if (!this.apiKey) {
+      console.log('⚠️ No Gemini API key');
+      return []; // ✅ Return empty array, no mock
+    }
 
-      console.log('📸 Sending image to Gemini Vision...');
-      console.log('📏 Image size:', (imageBuffer.length / 1024).toFixed(2), 'KB');
-      console.log('🔑 API Key (first 10 chars):', this.apiKey.substring(0, 10) + '...');
-      console.log('🌐 API URL:', this.url);
+    console.log('📸 Sending image to Gemini Vision...');
 
-      const base64Image = imageBuffer.toString('base64');
-      const mimeType = 'image/jpeg';
-
-      const requestBody = {
+    const response = await axios.post(
+      `${this.url}?key=${this.apiKey}`,
+      {
         contents: [{
           parts: [
             {
@@ -30,8 +26,8 @@ class GeminiVisionService {
             },
             {
               inlineData: {
-                mimeType: mimeType,
-                data: base64Image
+                mimeType: 'image/jpeg',
+                data: imageBuffer.toString('base64')
               }
             }
           ]
@@ -40,58 +36,30 @@ class GeminiVisionService {
           temperature: 0.2,
           maxOutputTokens: 200,
         }
-      };
+      },
+      { timeout: 30000 }
+    );
 
-      console.log('📤 Request body size:', JSON.stringify(requestBody).length, 'bytes');
-
-      const response = await axios.post(
-        `${this.url}?key=${this.apiKey}`,
-        requestBody,
-        {
-          timeout: 30000,
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response data structure:', Object.keys(response.data || {}));
-
-      const reply = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log('📝 Reply from Gemini:', reply);
+    const reply = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (reply && typeof reply === 'string' && reply.trim()) {
+      const ingredients = reply.split(',').map(i => i.trim().toLowerCase());
+      console.log('✅ Detected ingredients:', ingredients);
       
-      if (reply && typeof reply === 'string' && reply.trim()) {
-        const ingredients = reply.split(',').map(i => i.trim().toLowerCase());
-        console.log('✅ Detected ingredients:', ingredients);
-        
-        return ingredients.map((name, index) => ({
-          name: name,
-          confidence: Math.max(60, 85 - (index * 5))
-        }));
-      }
-      
-      console.log('⚠️ No ingredients detected, using mock');
-      return this.getMockIngredients();
-      
-    } catch (error) {
-      console.error('❌ Gemini Vision error:', error.message);
-      
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Status Text:', error.response.statusText);
-        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
-      } else if (error.request) {
-        console.error('No response received from Gemini API');
-        console.error('Request was made but no response:', error.request);
-      } else {
-        console.error('Error setting up request:', error.message);
-      }
-      
-      console.log('⚠️ Using mock ingredients due to API error');
-      return this.getMockIngredients();
+      return ingredients.map((name, index) => ({
+        name: name,
+        confidence: Math.max(60, 85 - (index * 5))
+      }));
     }
+    
+    console.log('⚠️ No ingredients detected');
+    return []; // ✅ Return empty array, no mock
+    
+  } catch (error) {
+    console.error('❌ Gemini Vision error:', error.message);
+    return []; // ✅ Return empty array, no mock
   }
+}
 
   getMockIngredients() {
     return [
