@@ -2,215 +2,203 @@ const db = require('../../database/models');
 const { Op } = require('sequelize');
 const notificationService = require('../notification/notification.service');
 
+// Helper function to safely parse scannedImages (handles double-encoded JSON)
+function parseScannedImages(scannedImages) {
+  if (!scannedImages) return [];
+  
+  let result = scannedImages;
+  
+  // First parse attempt
+  if (typeof result === 'string') {
+    try {
+      result = JSON.parse(result);
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  // Second parse attempt (for double-encoded JSON)
+  if (typeof result === 'string') {
+    try {
+      result = JSON.parse(result);
+    } catch (e) {
+      return [];
+    }
+  }
+  
+  // Return array if valid, otherwise empty array
+  return Array.isArray(result) ? result : [];
+}
+
 class AdminService {
   
   // ============ USER MANAGEMENT FUNCTIONS ============
 
   async getUserDetails(userId) {
-  console.log('🔍 [ADMIN SERVICE] getUserDetails called');
-  console.log('   User ID:', userId);
-  console.log('   Type:', typeof userId);
-  
-  try {
-    const user = await db.User.findByPk(userId, {
-      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
-    });
+    console.log('🔍 [ADMIN SERVICE] getUserDetails called');
+    console.log('   User ID:', userId);
+    console.log('   Type:', typeof userId);
     
-    if (!user) {
-      console.log('❌ [ADMIN SERVICE] User not found:', userId);
-      throw new Error('User not found');
-    }
-    
-    console.log('✅ [ADMIN SERVICE] User found:', user.username);
-    console.log('   User ID:', user.id);
-    console.log('   User role:', user.role);
-    console.log('   User status:', user.status);
-    
-    // Get saved recipes count - using snake_case
-    const savedRecipesCount = await db.UserSavedRecipe.count({
-      where: { user_id: userId }
-    });
-    console.log('   Saved recipes count:', savedRecipesCount);
-    
-    // Get recipes created by user - using snake_case
-    const recipes = await db.Recipe.findAll({
-      where: { created_by: userId },
-      attributes: ['id', 'title', 'image', 'created_at'],
-      order: [['created_at', 'DESC']]
-    });
-    console.log('   User recipes count:', recipes.length);
-    
-    // ✅ Parse reportedImages (handle JSON string or array)
-    let reportedImages = [];
-    if (user.reportedImages) {
-      if (Array.isArray(user.reportedImages)) {
-        reportedImages = user.reportedImages;
-      } else if (typeof user.reportedImages === 'string') {
-        try {
-          reportedImages = JSON.parse(user.reportedImages);
-        } catch (e) {
-          console.error('   Failed to parse reportedImages:', e.message);
-          reportedImages = [];
-        }
-      } else if (typeof user.reportedImages === 'object') {
-        reportedImages = Object.values(user.reportedImages);
-      }
-    }
-    console.log('   Reported images count:', reportedImages.length);
-    
-    // ✅ Parse scannedImages (handle JSON string or array)
-    let scannedImages = [];
-    if (user.scannedImages) {
-      if (Array.isArray(user.scannedImages)) {
-        scannedImages = user.scannedImages;
-      } else if (typeof user.scannedImages === 'string') {
-        try {
-          scannedImages = JSON.parse(user.scannedImages);
-        } catch (e) {
-          console.error('   Failed to parse scannedImages:', e.message);
-          scannedImages = [];
-        }
-      } else if (typeof user.scannedImages === 'object') {
-        scannedImages = Object.values(user.scannedImages);
-      }
-    }
-    console.log('   📸 Scanned images count:', scannedImages.length);
-    
-    // Log first few scanned images
-    if (scannedImages.length > 0 && Array.isArray(scannedImages)) {
-      scannedImages.slice(0, 3).forEach((scan, idx) => {
-        console.log(`     Scan ${idx + 1}:`, scan.url || 'No URL');
-      });
-    }
-    
-    const result = {
-      ...user.toJSON(),
-      savedRecipesCount,
-      recipes,
-      reportedImages,  // ✅ Use parsed reportedImages
-      scannedImages     // ✅ Use parsed scannedImages
-    };
-    
-    console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
-    return result;
-  } catch (error) {
-    console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
-    console.error('   Stack:', error.stack);
-    throw error;
-  }
-}
-
-async getAllUsers(filters = {}) {
-  console.log('👥 [ADMIN SERVICE] getAllUsers called');
-  console.log('   Filters:', filters);
-  
-  try {
-    const { status } = filters;
-    const where = {};
-    
-    if (status === 'active') {
-      where.isActive = true;
-      where.status = 'active';
-      console.log('   Filter: Active users');
-    } else if (status === 'suspended') {
-      where.status = 'suspended';
-      console.log('   Filter: Suspended users');
-    } else if (status === 'banned') {
-      where.status = 'banned';
-      console.log('   Filter: Banned users');
-    } else if (status === 'activeToday') {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-      
-      where.last_active = {
-        [Op.between]: [startOfToday, endOfToday]
-      };
-      console.log('   Filter: Active today');
-    } else {
-      console.log('   Filter: All users');
-    }
-    
-    const users = await db.User.findAll({
-      where,
-      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
-      order: [['last_active', 'DESC']]
-    });
-    
-    console.log(`   Found ${users.length} users in database`);
-    
-    const usersWithCount = await Promise.all(users.map(async (user) => {
-      const savedCount = await db.UserSavedRecipe.count({
-        where: { user_id: user.id }
+    try {
+      const user = await db.User.findByPk(userId, {
+        attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
       });
       
-      // ✅ CRITICAL FIX: Get scanned images count directly from the JSON field
-      let scannedImagesCount = 0;
-      if (user.scannedImages) {
-        // Log the raw data to debug
-        console.log(`   Raw scannedImages for ${user.username}:`, typeof user.scannedImages, user.scannedImages);
-        
-        // If it's already an array
-        if (Array.isArray(user.scannedImages)) {
-          scannedImagesCount = user.scannedImages.length;
-        } 
-        // If it's a string (JSON), parse it
-        else if (typeof user.scannedImages === 'string') {
-          try {
-            const parsed = JSON.parse(user.scannedImages);
-            scannedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
-            console.log(`   Parsed scannedImages for ${user.username}: ${scannedImagesCount} images`);
-          } catch (e) {
-            console.error(`   Failed to parse scannedImages for ${user.username}:`, e.message);
-            scannedImagesCount = 0;
-          }
-        }
-        // If it's an object with numeric keys
-        else if (typeof user.scannedImages === 'object') {
-          scannedImagesCount = Object.keys(user.scannedImages).length;
-        }
+      if (!user) {
+        console.log('❌ [ADMIN SERVICE] User not found:', userId);
+        throw new Error('User not found');
       }
       
-      console.log(`   ✅ User ${user.username}: scannedImagesCount = ${scannedImagesCount}, savedCount = ${savedCount}`);
+      console.log('✅ [ADMIN SERVICE] User found:', user.username);
+      console.log('   User ID:', user.id);
+      console.log('   User role:', user.role);
+      console.log('   User status:', user.status);
       
-      // Parse reportedImages count safely
-      let reportedImagesCount = 0;
+      // Get saved recipes count
+      const savedRecipesCount = await db.UserSavedRecipe.count({
+        where: { user_id: userId }
+      });
+      console.log('   Saved recipes count:', savedRecipesCount);
+      
+      // Get recipes created by user
+      const recipes = await db.Recipe.findAll({
+        where: { created_by: userId },
+        attributes: ['id', 'title', 'image', 'created_at'],
+        order: [['created_at', 'DESC']]
+      });
+      console.log('   User recipes count:', recipes.length);
+      
+      // Parse reportedImages
+      let reportedImages = [];
       if (user.reportedImages) {
         if (Array.isArray(user.reportedImages)) {
-          reportedImagesCount = user.reportedImages.length;
+          reportedImages = user.reportedImages;
         } else if (typeof user.reportedImages === 'string') {
           try {
-            const parsed = JSON.parse(user.reportedImages);
-            reportedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
+            reportedImages = JSON.parse(user.reportedImages);
           } catch (e) {
-            reportedImagesCount = 0;
+            console.error('   Failed to parse reportedImages:', e.message);
+            reportedImages = [];
           }
         }
       }
+      console.log('   Reported images count:', reportedImages.length);
       
-      return {
+      // ✅ Parse scannedImages using helper function
+      const scannedImages = parseScannedImages(user.scannedImages);
+      console.log('   📸 Scanned images count:', scannedImages.length);
+      
+      // Log first few scanned images
+      if (scannedImages.length > 0) {
+        scannedImages.slice(0, 3).forEach((scan, idx) => {
+          console.log(`     Scan ${idx + 1}:`, scan.url || 'No URL');
+        });
+      }
+      
+      const result = {
         ...user.toJSON(),
-        savedRecipesCount: savedCount,
-        scannedImagesCount,
-        reportedImagesCount
+        savedRecipesCount,
+        recipes,
+        reportedImages,
+        scannedImages
       };
-    }));
-    
-    console.log(`✅ [ADMIN SERVICE] getAllUsers completed, returning ${usersWithCount.length} users`);
-    if (usersWithCount.length > 0) {
-      console.log(`   First user: ${usersWithCount[0].username} (ID: ${usersWithCount[0].id})`);
-      console.log(`   Scanned images count: ${usersWithCount[0].scannedImagesCount}`);
+      
+      console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
+      return result;
+    } catch (error) {
+      console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
+      console.error('   Stack:', error.stack);
+      throw error;
     }
-    
-    return usersWithCount;
-  } catch (error) {
-    console.error('❌ [ADMIN SERVICE] getAllUsers error:', error.message);
-    console.error('   Stack:', error.stack);
-    throw error;
   }
-}
- 
+
+  async getAllUsers(filters = {}) {
+    console.log('👥 [ADMIN SERVICE] getAllUsers called');
+    console.log('   Filters:', filters);
+    
+    try {
+      const { status } = filters;
+      const where = {};
+      
+      if (status === 'active') {
+        where.isActive = true;
+        where.status = 'active';
+        console.log('   Filter: Active users');
+      } else if (status === 'suspended') {
+        where.status = 'suspended';
+        console.log('   Filter: Suspended users');
+      } else if (status === 'banned') {
+        where.status = 'banned';
+        console.log('   Filter: Banned users');
+      } else if (status === 'activeToday') {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        
+        where.last_active = {
+          [Op.between]: [startOfToday, endOfToday]
+        };
+        console.log('   Filter: Active today');
+      } else {
+        console.log('   Filter: All users');
+      }
+      
+      const users = await db.User.findAll({
+        where,
+        attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+        order: [['last_active', 'DESC']]
+      });
+      
+      console.log(`   Found ${users.length} users in database`);
+      
+      const usersWithCount = await Promise.all(users.map(async (user) => {
+        const savedCount = await db.UserSavedRecipe.count({
+          where: { user_id: user.id }
+        });
+        
+        // ✅ Parse scannedImages using helper function
+        const parsedScannedImages = parseScannedImages(user.scannedImages);
+        const scannedImagesCount = parsedScannedImages.length;
+        
+        console.log(`   ✅ User ${user.username}: scannedImagesCount = ${scannedImagesCount}, savedCount = ${savedCount}`);
+        
+        // Parse reportedImages count
+        let reportedImagesCount = 0;
+        if (user.reportedImages) {
+          if (Array.isArray(user.reportedImages)) {
+            reportedImagesCount = user.reportedImages.length;
+          } else if (typeof user.reportedImages === 'string') {
+            try {
+              const parsed = JSON.parse(user.reportedImages);
+              reportedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
+            } catch (e) {
+              reportedImagesCount = 0;
+            }
+          }
+        }
+        
+        return {
+          ...user.toJSON(),
+          savedRecipesCount: savedCount,
+          scannedImagesCount,
+          reportedImagesCount
+        };
+      }));
+      
+      console.log(`✅ [ADMIN SERVICE] getAllUsers completed, returning ${usersWithCount.length} users`);
+      if (usersWithCount.length > 0) {
+        console.log(`   First user: ${usersWithCount[0].username} (ID: ${usersWithCount[0].id})`);
+        console.log(`   Scanned images count: ${usersWithCount[0].scannedImagesCount}`);
+      }
+      
+      return usersWithCount;
+    } catch (error) {
+      console.error('❌ [ADMIN SERVICE] getAllUsers error:', error.message);
+      console.error('   Stack:', error.stack);
+      throw error;
+    }
+  }
 
   // ============ DASHBOARD & STATS ============
   
@@ -420,26 +408,17 @@ async getAllUsers(filters = {}) {
       suspendedUntil.setDate(suspendedUntil.getDate() + durationDays);
       console.log('   Suspended until:', suspendedUntil);
       
-      // Handle moderationHistory - ensure it's an array
       let history = [];
       if (user.moderationHistory) {
         if (Array.isArray(user.moderationHistory)) {
           history = user.moderationHistory;
-          console.log('   moderationHistory is array, length:', history.length);
         } else if (typeof user.moderationHistory === 'string') {
           try {
             history = JSON.parse(user.moderationHistory);
-            console.log('   moderationHistory parsed from string, length:', history.length);
           } catch (e) {
-            console.log('   Failed to parse moderationHistory, using empty array');
             history = [];
           }
-        } else {
-          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
-          history = [];
         }
-      } else {
-        console.log('   moderationHistory is null/undefined, using empty array');
       }
       
       history.push({
@@ -494,26 +473,17 @@ async getAllUsers(filters = {}) {
         throw new Error('Cannot ban admin users');
       }
       
-      // Handle moderationHistory - ensure it's an array
       let history = [];
       if (user.moderationHistory) {
         if (Array.isArray(user.moderationHistory)) {
           history = user.moderationHistory;
-          console.log('   moderationHistory is array, length:', history.length);
         } else if (typeof user.moderationHistory === 'string') {
           try {
             history = JSON.parse(user.moderationHistory);
-            console.log('   moderationHistory parsed from string, length:', history.length);
           } catch (e) {
-            console.log('   Failed to parse moderationHistory, using empty array');
             history = [];
           }
-        } else {
-          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
-          history = [];
         }
-      } else {
-        console.log('   moderationHistory is null/undefined, using empty array');
       }
       
       history.push({
@@ -561,31 +531,20 @@ async getAllUsers(filters = {}) {
       
       console.log('   User found:', user.username);
       console.log('   Current violation count:', user.violationCount || 0);
-      console.log('   ModerationHistory type:', typeof user.moderationHistory);
-      console.log('   ModerationHistory value:', user.moderationHistory);
       
       const violationCount = (user.violationCount || 0) + 1;
       
-      // Handle moderationHistory - ensure it's an array
       let history = [];
       if (user.moderationHistory) {
         if (Array.isArray(user.moderationHistory)) {
           history = user.moderationHistory;
-          console.log('   moderationHistory is array, length:', history.length);
         } else if (typeof user.moderationHistory === 'string') {
           try {
             history = JSON.parse(user.moderationHistory);
-            console.log('   moderationHistory parsed from string, length:', history.length);
           } catch (e) {
-            console.log('   Failed to parse moderationHistory, using empty array');
             history = [];
           }
-        } else {
-          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
-          history = [];
         }
-      } else {
-        console.log('   moderationHistory is null/undefined, using empty array');
       }
       
       history.push({
@@ -594,8 +553,6 @@ async getAllUsers(filters = {}) {
         date: new Date(),
         warningNumber: violationCount
       });
-      
-      console.log('   Updated history length:', history.length);
       
       await user.update({
         violationCount,
@@ -633,26 +590,17 @@ async getAllUsers(filters = {}) {
       console.log('   User found:', user.username);
       console.log('   Previous status:', user.status);
       
-      // Handle moderationHistory - ensure it's an array
       let history = [];
       if (user.moderationHistory) {
         if (Array.isArray(user.moderationHistory)) {
           history = user.moderationHistory;
-          console.log('   moderationHistory is array, length:', history.length);
         } else if (typeof user.moderationHistory === 'string') {
           try {
             history = JSON.parse(user.moderationHistory);
-            console.log('   moderationHistory parsed from string, length:', history.length);
           } catch (e) {
-            console.log('   Failed to parse moderationHistory, using empty array');
             history = [];
           }
-        } else {
-          console.log('   moderationHistory is unknown type:', typeof user.moderationHistory);
-          history = [];
         }
-      } else {
-        console.log('   moderationHistory is null/undefined, using empty array');
       }
       
       history.push({
@@ -687,5 +635,5 @@ async getAllUsers(filters = {}) {
     }
   }
 }
- 
+
 module.exports = new AdminService();

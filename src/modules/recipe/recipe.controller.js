@@ -104,7 +104,6 @@ exports.getSavedRecipes = async (req, res) => {
 }; 
 
 
-
 exports.scanIngredients = async (req, res) => {
   try {
     if (!req.file) {
@@ -117,14 +116,46 @@ exports.scanIngredients = async (req, res) => {
     
     console.log('📸 Scanning image for user:', userId);
     console.log('📁 Image URL:', imageUrl);
-    console.log('📁 File path:', filePath);
     
-    // ✅ Read the file from disk to get buffer
     const imageBuffer = fs.readFileSync(filePath);
-    console.log('📦 Buffer size:', imageBuffer.length, 'bytes');
-    
-    // ✅ Pass the buffer to the service
     const result = await recipeService.scanIngredientsFromImage(imageBuffer, userId);
+    
+    // Get the user
+    const user = await db.User.findByPk(userId);
+    
+    if (user) {
+      // Parse existing scannedImages (handle potential double-encoding)
+      let existingScans = [];
+      if (user.scannedImages) {
+        let parsed = user.scannedImages;
+        // Parse until we get an array
+        while (typeof parsed === 'string') {
+          try {
+            parsed = JSON.parse(parsed);
+          } catch (e) {
+            break;
+          }
+        }
+        if (Array.isArray(parsed)) {
+          existingScans = parsed;
+        }
+      }
+      
+      // Add new scan
+      const newScan = {
+        url: imageUrl,
+        scannedAt: new Date(),
+        ingredients: result.detected || [],
+        originalFilename: req.file.originalname,
+        fileSize: req.file.size
+      };
+      
+      existingScans.push(newScan);
+      
+      // ✅ Store as SINGLE JSON string (not double-encoded)
+      await user.update({ scannedImages: JSON.stringify(existingScans) });
+      console.log('✅ Saved scan, total:', existingScans.length);
+    }
     
     res.json({
       detected: result.detected,
@@ -137,6 +168,7 @@ exports.scanIngredients = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 // Add these functions after getRecipes
@@ -186,39 +218,3 @@ exports.generateFromIngredients = async (req, res) => {
   }
 };
 
-// Get user's scanned images (admin only)
-exports.getUserScannedImages = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    const user = await db.User.findByPk(userId, {
-      attributes: ['id', 'username', 'scannedImages']
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // ✅ Parse scannedImages if it's a string
-    let scannedImages = [];
-    if (user.scannedImages) {
-      if (Array.isArray(user.scannedImages)) {
-        scannedImages = user.scannedImages;
-      } else if (typeof user.scannedImages === 'string') {
-        try {
-          scannedImages = JSON.parse(user.scannedImages);
-        } catch (e) {
-          scannedImages = [];
-        }
-      }
-    } 
-    
-    res.json({
-      success: true,
-      scannedImages: scannedImages
-    });
-  } catch (error) {
-    console.error('❌ Error fetching scanned images:', error);
-    res.status(500).json({ message: error.message });
-  }
-};

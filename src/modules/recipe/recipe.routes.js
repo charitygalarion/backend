@@ -6,7 +6,7 @@ const recipeController = require('./recipe.controller');
 const multer = require('multer');
 const upload = multer();
  
-// Public routes
+// Public routes 
 router.get('/', recipeController.getRecipes);
 router.get('/recent', recipeController.getRecentRecipes);
 router.get('/popular', recipeController.getPopularRecipes); 
@@ -28,7 +28,5 @@ router.post('/', protect, admin, uploadRecipeImage, recipeController.createRecip
 router.put('/:id', protect, admin, uploadRecipeImage, recipeController.updateRecipe);
 router.delete('/:id', protect, admin, recipeController.deleteRecipe);
 
-// Admin route to view user's scanned images
-router.get('/user/:userId/scans', protect, admin, recipeController.getUserScannedImages);
 
 module.exports = router;

@@ -17,9 +17,9 @@ router.get('/users', adminController.getAllUsers);
 router.get('/users/:id/scans', adminController.getUserScannedImages); // ✅ Specific route first
 router.get('/users/:id', adminController.getUserById);                 // ✅ Parameter route after
 
-// PUT routes for user actions
+// PUT routes for user actions 
 router.put('/users/:id/warn', adminController.warnUser);
-router.put('/users/:id/suspend', adminController.suspendUser);
+router.put('/users/:id/suspend', adminController.suspendUser); 
 router.put('/users/:id/ban', adminController.banUser);
 router.put('/users/:id/restore', adminController.restoreUser);
 

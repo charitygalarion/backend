@@ -201,7 +201,7 @@ exports.banUser = async (req, res) => {
     console.error('   Stack:', error.stack);
     res.status(400).json({ message: error.message });
   } 
-};
+}; 
 
 exports.restoreUser = async (req, res) => {
   try {
@@ -263,7 +263,7 @@ exports.getAllRecipes = async (req, res) => {
     const recipes = await recipeService.getAllRecipes({ 
       limit: 100,
       adminView: true  // ✅ Add this flag to indicate admin is viewing
-    });
+    }); 
     
     console.log('✅ [ADMIN] getAllRecipes completed');
     console.log('   Total recipes:', recipes.length);
@@ -274,7 +274,7 @@ exports.getAllRecipes = async (req, res) => {
     console.error('   Stack:', error.stack);
     res.status(500).json({ message: error.message });
   }
-};
+}; 
 
 
 
@@ -408,39 +408,53 @@ exports.deleteRecipe = async (req, res) => {
   }
 }; 
 
-// Add this new endpoint to admin.controller.js
+// Helper function to safely parse scannedImages
+function parseScannedImages(scannedImages) {
+  if (!scannedImages) return [];
+  
+  let result = scannedImages;
+  let parseCount = 0;
+  const maxParses = 5;
+  
+  while (typeof result === 'string' && parseCount < maxParses) {
+    try {
+      result = JSON.parse(result);
+      parseCount++;
+    } catch (e) {
+      break;
+    }
+  }
+  
+  return Array.isArray(result) ? result : [];
+}
+
 exports.getUserScannedImages = async (req, res) => {
   try {
     console.log('📸 [ADMIN] getUserScannedImages called');
-    console.log('   Timestamp:', new Date().toISOString());
-    console.log('   User ID:', req.params.id); // Note: it's req.params.id, not userId
-    console.log('   Admin:', req.user?.username);
+    console.log('   User ID:', req.params.id);
     
-    const userId = req.params.id; // Get from params
+    const userId = req.params.id;
     
     const user = await db.User.findByPk(userId, {
       attributes: ['id', 'username', 'scannedImages']
-    }); 
+    });
     
     if (!user) {
-      console.log('❌ [ADMIN] User not found:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    console.log('✅ [ADMIN] getUserScannedImages completed');
-    console.log('   Scanned images count:', (user.scannedImages || []).length);
+    // ✅ Parse the double-encoded JSON
+    const scannedImages = parseScannedImages(user.scannedImages);
     
-    // Log first few scanned images for debugging
-    if (user.scannedImages && user.scannedImages.length > 0) {
-      console.log('   Sample scan:', user.scannedImages[0]);
-    }
+    console.log('✅ Returning scanned images count:', scannedImages.length);
     
     res.json({
-      success: true,
-      scannedImages: user.scannedImages || []
+      success: true, 
+      scannedImages: scannedImages,
+      scannedImagesCount: scannedImages.length
     });
   } catch (error) {
-    console.error('❌ [ADMIN] getUserScannedImages error:', error.message);
+    console.error('❌ Error:', error.message);
     res.status(500).json({ message: error.message });
   }
 };
