@@ -3,6 +3,8 @@ const recipeService = require('./recipe.service');
 const { transformResponse } = require('../../utils/response.util');
 const multer = require('multer');
 const upload = multer();
+const fs = require('fs');
+const path = require('path');
 
 exports.getRecipes = async (req, res) => {
   try {
@@ -101,55 +103,28 @@ exports.getSavedRecipes = async (req, res) => {
   }
 }; 
 
+
+
 exports.scanIngredients = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No image uploaded' });
     }
     
-    const userId = req.user.id; // or req.user._id depending on your auth setup
+    const userId = req.user.id;
     const imageUrl = `/uploads/scans/${req.file.filename}`;
+    const filePath = path.join(__dirname, '../../../uploads/scans', req.file.filename);
     
     console.log('📸 Scanning image for user:', userId);
     console.log('📁 Image URL:', imageUrl);
+    console.log('📁 File path:', filePath);
     
-    // First, scan the image to detect ingredients
-    const result = await recipeService.scanIngredientsFromImage(req.file.buffer);
+    // ✅ Read the file from disk to get buffer
+    const imageBuffer = fs.readFileSync(filePath);
+    console.log('📦 Buffer size:', imageBuffer.length, 'bytes');
     
-    // Save the scanned image to user's scannedImages array
-    const user = await db.User.findByPk(userId);
-    if (user) {
-      // ✅ FIX: Ensure scannedImages is an array
-      let scannedImages = [];
-      
-      // Check what type scannedImages is
-      if (user.scannedImages) {
-        if (Array.isArray(user.scannedImages)) {
-          scannedImages = user.scannedImages;
-        } else if (typeof user.scannedImages === 'string') {
-          try {
-            scannedImages = JSON.parse(user.scannedImages);
-            if (!Array.isArray(scannedImages)) scannedImages = [];
-          } catch (e) {
-            scannedImages = [];
-          }
-        }
-      }
-      
-      // Add new scan
-      scannedImages.push({
-        url: imageUrl,
-        scannedAt: new Date(),
-        ingredients: result.detected || [],
-        originalFilename: req.file.originalname,
-        fileSize: req.file.size
-      });
-      
-      // Save as JSON string to avoid issues
-      await user.update({ scannedImages: JSON.stringify(scannedImages) });
-      console.log('✅ Scanned image saved for user:', userId);
-      console.log('📊 Total scanned images:', scannedImages.length);
-    }
+    // ✅ Pass the buffer to the service
+    const result = await recipeService.scanIngredientsFromImage(imageBuffer, userId);
     
     res.json({
       detected: result.detected,
@@ -236,7 +211,7 @@ exports.getUserScannedImages = async (req, res) => {
           scannedImages = [];
         }
       }
-    }
+    } 
     
     res.json({
       success: true,
