@@ -687,6 +687,6 @@ getFallbackFilipinoRecipe(ingredients) {
     ]
   };
 }
-}
+} 
 
 module.exports = new RecipeService();

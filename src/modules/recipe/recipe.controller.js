@@ -115,7 +115,7 @@ exports.scanIngredients = async (req, res) => {
 };
 
 // Add these functions after getRecipes
-
+ 
 exports.getRecentRecipes = async (req, res) => {
   try {
     const { limit = 6 } = req.query;

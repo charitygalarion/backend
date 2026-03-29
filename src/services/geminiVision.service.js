@@ -3,7 +3,7 @@ const axios = require('axios');
 class GeminiVisionService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY;
-    // ✅ Use gemini-2.5-flash (supports vision)
+    // ✅ gemini-2.5-flash is valid (latest model)
     this.model = 'gemini-2.5-flash';
     this.url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
   }
@@ -22,39 +22,42 @@ class GeminiVisionService {
       const base64Image = imageBuffer.toString('base64');
       const mimeType = 'image/jpeg';
 
+      // ✅ Correct API call format for gemini-2.5-flash
       const response = await axios.post(
-        `${this.url}?key=${this.apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
         {
-          contents: [{
-            parts: [
-              {
-                text: "List all the food ingredients you can see in this image. Return ONLY a comma-separated list of ingredient names. Example: 'garlic, onion, chicken, rice'"
-              },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Image
+          contents: [
+            {
+              parts: [
+                {
+                  text: "List all the food ingredients you can see in this image. Return ONLY a comma-separated list of ingredient names. Example: 'garlic, onion, chicken, rice'"
+                },
+                {
+                  inlineData: {
+                    mimeType: mimeType,
+                    data: base64Image
+                  }
                 }
-              }
-            ]
-          }],
+              ]
+            }
+          ],
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 200,
           }
         },
         {
-          timeout: 15000,
+          timeout: 30000,
           headers: {
             'Content-Type': 'application/json',
           }
         }
       );
 
+      // ✅ Parse the response correctly
       const reply = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
       
       if (reply && reply.trim()) {
-        // Parse comma-separated ingredients
         const ingredients = reply.split(',').map(i => i.trim().toLowerCase());
         console.log('✅ Detected ingredients:', ingredients);
         
@@ -69,46 +72,19 @@ class GeminiVisionService {
       
     } catch (error) {
       console.error('❌ Gemini Vision error:', error.message);
+      
       if (error.response) {
         console.error('Status:', error.response.status);
         console.error('Error details:', error.response.data?.error?.message || error.response.data);
         
-        // Handle specific error codes
         if (error.response.status === 403) {
           console.error('⚠️ API key is invalid or quota exceeded');
         } else if (error.response.status === 429) {
           console.error('⚠️ Rate limit exceeded. Try again later.');
-        } else if (error.response.status === 404) {
-          console.error('⚠️ Model not found. Using fallback.');
         }
       }
-      return this.getMockIngredients();
-    }
-  }
-
-  async checkApiKey() {
-    if (!this.apiKey) {
-      console.warn('⚠️ GEMINI_API_KEY is not set');
-      return false;
-    }
-    
-    try {
-      // Quick test with a simple text request
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
-        {
-          contents: [{ parts: [{ text: "Hello" }] }],
-          generationConfig: { maxOutputTokens: 5 }
-        },
-        { timeout: 5000 }
-      );
       
-      console.log('✅ Gemini API key is valid');
-      console.log('📊 Using model: gemini-2.5-flash (vision-capable)');
-      return true;
-    } catch (error) {
-      console.error('❌ Gemini API key is invalid:', error.response?.data?.error?.message);
-      return false;
+      return this.getMockIngredients();
     }
   }
 
