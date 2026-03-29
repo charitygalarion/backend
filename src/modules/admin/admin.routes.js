@@ -11,10 +11,11 @@ router.use(protect, admin);
 router.get('/stats', adminController.getStats);
 router.get('/dashboard', adminController.getDashboard);
 
-// ============ USER MANAGEMENT (with /users prefix) ============
-// GET routes
+// ============ USER MANAGEMENT ============
+// GET routes - specific routes BEFORE parameter routes
 router.get('/users', adminController.getAllUsers);
-router.get('/users/:id', adminController.getUserById);
+router.get('/users/:id/scans', adminController.getUserScannedImages); // ✅ Specific route first
+router.get('/users/:id', adminController.getUserById);                 // ✅ Parameter route after
 
 // PUT routes for user actions
 router.put('/users/:id/warn', adminController.warnUser);
@@ -31,4 +32,4 @@ router.post('/recipes', uploadRecipeImage, adminController.createRecipe);
 router.put('/recipes/:id', uploadRecipeImage, adminController.updateRecipe);
 router.delete('/recipes/:id', adminController.deleteRecipe);
 
-module.exports = router; 
+module.exports = router;

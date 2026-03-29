@@ -1,3 +1,4 @@
+const db = require('../../database/models');
 const adminService = require('./admin.service');
 const recipeService = require('../recipe/recipe.service');
 const { transformResponse } = require('../../utils/response.util');
@@ -404,5 +405,42 @@ exports.deleteRecipe = async (req, res) => {
     console.error('   Recipe ID:', req.params.id);
     console.error('   Stack:', error.stack);
     res.status(404).json({ message: error.message });
+  }
+}; 
+
+// Add this new endpoint to admin.controller.js
+exports.getUserScannedImages = async (req, res) => {
+  try {
+    console.log('📸 [ADMIN] getUserScannedImages called');
+    console.log('   Timestamp:', new Date().toISOString());
+    console.log('   User ID:', req.params.id); // Note: it's req.params.id, not userId
+    console.log('   Admin:', req.user?.username);
+    
+    const userId = req.params.id; // Get from params
+    
+    const user = await db.User.findByPk(userId, {
+      attributes: ['id', 'username', 'scannedImages']
+    });
+    
+    if (!user) {
+      console.log('❌ [ADMIN] User not found:', userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    console.log('✅ [ADMIN] getUserScannedImages completed');
+    console.log('   Scanned images count:', (user.scannedImages || []).length);
+    
+    // Log first few scanned images for debugging
+    if (user.scannedImages && user.scannedImages.length > 0) {
+      console.log('   Sample scan:', user.scannedImages[0]);
+    }
+    
+    res.json({
+      success: true,
+      scannedImages: user.scannedImages || []
+    });
+  } catch (error) {
+    console.error('❌ [ADMIN] getUserScannedImages error:', error.message);
+    res.status(500).json({ message: error.message });
   }
 };

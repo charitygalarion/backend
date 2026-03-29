@@ -1,3 +1,4 @@
+const db = require('../../database/models');
 const recipeService = require('./recipe.service');
 const { transformResponse } = require('../../utils/response.util');
 const multer = require('multer');
@@ -100,16 +101,47 @@ exports.getSavedRecipes = async (req, res) => {
   }
 }; 
 
-
+// In recipe.controller.js - update the scanIngredients function
 exports.scanIngredients = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No image uploaded' });
     }
     
+    const userId = req.user.id; // or req.user._id depending on your auth setup
+    const imageUrl = `/uploads/scans/${req.file.filename}`;
+    
+    console.log('📸 Scanning image for user:', userId);
+    console.log('📁 Image URL:', imageUrl);
+    
+    // First, scan the image to detect ingredients
     const result = await recipeService.scanIngredientsFromImage(req.file.buffer);
-    res.json(result);
+    
+    // Save the scanned image to user's scannedImages array
+    const user = await db.User.findByPk(userId);
+    if (user) {
+      const scannedImages = user.scannedImages || [];
+      scannedImages.push({
+        url: imageUrl,
+        scannedAt: new Date(),
+        ingredients: result.detected || [],
+        originalFilename: req.file.originalname,
+        fileSize: req.file.size
+      });
+      
+      await user.update({ scannedImages });
+      console.log('✅ Scanned image saved for user:', userId);
+      console.log('📊 Total scanned images:', scannedImages.length);
+    }
+    
+    res.json({
+      detected: result.detected,
+      recipes: result.recipes,
+      imageUrl: imageUrl
+    });
+    
   } catch (error) {
+    console.error('❌ Scan error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -160,3 +192,26 @@ exports.generateFromIngredients = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Get user's scanned images (admin only)
+exports.getUserScannedImages = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await db.User.findByPk(userId, {
+      attributes: ['id', 'username', 'scannedImages']
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      success: true,
+      scannedImages: user.scannedImages || []
+    });
+  } catch (error) {
+    console.error('❌ Error fetching scanned images:', error);
+    res.status(500).json({ message: error.message });
+  }
+}; 

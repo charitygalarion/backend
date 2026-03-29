@@ -5,124 +5,140 @@ const notificationService = require('../notification/notification.service');
 class AdminService {
   
   // ============ USER MANAGEMENT FUNCTIONS ============
+async getUserDetails(userId) {
+  console.log('🔍 [ADMIN SERVICE] getUserDetails called');
+  console.log('   User ID:', userId);
+  console.log('   Type:', typeof userId);
   
-  async getUserDetails(userId) {
-    console.log('🔍 [ADMIN SERVICE] getUserDetails called');
-    console.log('   User ID:', userId);
-    console.log('   Type:', typeof userId);
+  try {
+    const user = await db.User.findByPk(userId, {
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
+    });
     
-    try {
-      const user = await db.User.findByPk(userId, {
-        attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] }
-      });
-      
-      if (!user) {
-        console.log('❌ [ADMIN SERVICE] User not found:', userId);
-        throw new Error('User not found');
-      }
-      
-      console.log('✅ [ADMIN SERVICE] User found:', user.username);
-      console.log('   User ID:', user.id);
-      console.log('   User role:', user.role);
-      console.log('   User status:', user.status);
-      
-      // Get saved recipes count - using snake_case
-      const savedRecipesCount = await db.UserSavedRecipe.count({
-        where: { user_id: userId }
-      });
-      console.log('   Saved recipes count:', savedRecipesCount);
-      
-      // Get recipes created by user - using snake_case
-      const recipes = await db.Recipe.findAll({
-        where: { created_by: userId },
-        attributes: ['id', 'title', 'image', 'created_at'],
-        order: [['created_at', 'DESC']]
-      });
-      console.log('   User recipes count:', recipes.length);
-      
-      // Get reported images
-      const reportedImages = user.reportedImages || [];
-      console.log('   Reported images count:', reportedImages.length);
-      
-      const result = {
-        ...user.toJSON(),
-        savedRecipesCount,
-        recipes,
-        reportedImages
-      };
-      
-      console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
-      return result;
-    } catch (error) {
-      console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
-      console.error('   Stack:', error.stack);
-      throw error;
+    if (!user) {
+      console.log('❌ [ADMIN SERVICE] User not found:', userId);
+      throw new Error('User not found');
     }
+    
+    console.log('✅ [ADMIN SERVICE] User found:', user.username);
+    console.log('   User ID:', user.id);
+    console.log('   User role:', user.role);
+    console.log('   User status:', user.status);
+    
+    // Get saved recipes count - using snake_case
+    const savedRecipesCount = await db.UserSavedRecipe.count({
+      where: { user_id: userId }
+    });
+    console.log('   Saved recipes count:', savedRecipesCount);
+    
+    // Get recipes created by user - using snake_case
+    const recipes = await db.Recipe.findAll({
+      where: { created_by: userId },
+      attributes: ['id', 'title', 'image', 'created_at'],
+      order: [['created_at', 'DESC']]
+    });
+    console.log('   User recipes count:', recipes.length);
+    
+    // Get reported images
+    const reportedImages = user.reportedImages || [];
+    console.log('   Reported images count:', reportedImages.length);
+    
+    // ✅ NEW: Get scanned images
+    const scannedImages = user.scannedImages || [];
+    console.log('   📸 Scanned images count:', scannedImages.length);
+    
+    // Log scanned images details
+    if (scannedImages.length > 0) {
+      scannedImages.forEach((scan, idx) => {
+        console.log(`     Scan ${idx + 1}: ${scan.url}, ingredients: ${scan.ingredients?.length || 0}`);
+      });
+    }
+    
+    const result = {
+      ...user.toJSON(),
+      savedRecipesCount,
+      recipes,
+      reportedImages,
+      scannedImages  // ✅ Add scanned images to result
+    };
+    
+    console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
+    return result;
+  } catch (error) {
+    console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
+    console.error('   Stack:', error.stack);
+    throw error;
   }
+}
 
-  async getAllUsers(filters = {}) {
-    console.log('👥 [ADMIN SERVICE] getAllUsers called');
-    console.log('   Filters:', filters);
+async getAllUsers(filters = {}) {
+  console.log('👥 [ADMIN SERVICE] getAllUsers called');
+  console.log('   Filters:', filters);
+  
+  try {
+    const { status } = filters;
+    const where = {};
     
-    try {
-      const { status } = filters;
-      const where = {};
+    if (status === 'active') {
+      where.isActive = true;
+      where.status = 'active';
+      console.log('   Filter: Active users');
+    } else if (status === 'suspended') {
+      where.status = 'suspended';
+      console.log('   Filter: Suspended users');
+    } else if (status === 'banned') {
+      where.status = 'banned';
+      console.log('   Filter: Banned users');
+    } else if (status === 'activeToday') {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
       
-      if (status === 'active') {
-        where.isActive = true;
-        where.status = 'active';
-        console.log('   Filter: Active users');
-      } else if (status === 'suspended') {
-        where.status = 'suspended';
-        console.log('   Filter: Suspended users');
-      } else if (status === 'banned') {
-        where.status = 'banned';
-        console.log('   Filter: Banned users');
-      } else if (status === 'activeToday') {
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-        const endOfToday = new Date();
-        endOfToday.setHours(23, 59, 59, 999);
-        
-        where.last_active = {
-          [Op.between]: [startOfToday, endOfToday]
-        };
-        console.log('   Filter: Active today');
-      } else {
-        console.log('   Filter: All users');
-      }
-      
-      const users = await db.User.findAll({
-        where,
-        attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
-        order: [['last_active', 'DESC']]
+      where.last_active = {
+        [Op.between]: [startOfToday, endOfToday]
+      };
+      console.log('   Filter: Active today');
+    } else {
+      console.log('   Filter: All users');
+    }
+    
+    const users = await db.User.findAll({
+      where,
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+      order: [['last_active', 'DESC']]
+    });
+    
+    console.log(`   Found ${users.length} users in database`);
+    
+    const usersWithCount = await Promise.all(users.map(async (user) => {
+      const savedCount = await db.UserSavedRecipe.count({
+        where: { user_id: user.id }
       });
       
-      console.log(`   Found ${users.length} users in database`);
+      // ✅ NEW: Get scanned images count
+      const scannedImagesCount = (user.scannedImages || []).length;
       
-      const usersWithCount = await Promise.all(users.map(async (user) => {
-        const savedCount = await db.UserSavedRecipe.count({
-          where: { user_id: user.id }
-        });
-        
-        return {
-          ...user.toJSON(),
-          savedRecipesCount: savedCount
-        };
-      }));
-      
-      console.log(`✅ [ADMIN SERVICE] getAllUsers completed, returning ${usersWithCount.length} users`);
-      if (usersWithCount.length > 0) {
-        console.log(`   First user: ${usersWithCount[0].username} (ID: ${usersWithCount[0].id})`);
-      }
-      
-      return usersWithCount;
-    } catch (error) {
-      console.error('❌ [ADMIN SERVICE] getAllUsers error:', error.message);
-      console.error('   Stack:', error.stack);
-      throw error;
+      return {
+        ...user.toJSON(),
+        savedRecipesCount: savedCount,
+        scannedImagesCount  // ✅ Add scanned images count
+      };
+    }));
+    
+    console.log(`✅ [ADMIN SERVICE] getAllUsers completed, returning ${usersWithCount.length} users`);
+    if (usersWithCount.length > 0) {
+      console.log(`   First user: ${usersWithCount[0].username} (ID: ${usersWithCount[0].id})`);
+      console.log(`   Scanned images count for first user: ${usersWithCount[0].scannedImagesCount}`);
     }
+    
+    return usersWithCount;
+  } catch (error) {
+    console.error('❌ [ADMIN SERVICE] getAllUsers error:', error.message);
+    console.error('   Stack:', error.stack);
+    throw error;
   }
+}
 
   // ============ DASHBOARD & STATS ============
   

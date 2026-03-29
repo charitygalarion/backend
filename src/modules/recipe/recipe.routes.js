@@ -1,22 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../../middlewares/auth.middleware');
-const { uploadRecipeImage } = require('../../config/upload');
+const { uploadRecipeImage, uploadScanImage } = require('../../config/upload'); // ✅ Import uploadScanImage
 const recipeController = require('./recipe.controller');
 const multer = require('multer');
 const upload = multer();
 
 // Public routes
 router.get('/', recipeController.getRecipes);
-router.get('/recent', recipeController.getRecentRecipes);           // ✅ Add this
-router.get('/popular', recipeController.getPopularRecipes);         // ✅ Add this
+router.get('/recent', recipeController.getRecentRecipes);
+router.get('/popular', recipeController.getPopularRecipes); 
 router.post('/find-by-ingredients', recipeController.findRecipesByIngredients);
 
 // Protected routes - MUST be BEFORE /:id
 router.get('/saved', protect, recipeController.getSavedRecipes);
 router.put('/:id/servings', protect, recipeController.adjustServingSize);
 
-router.post('/scan', protect, upload.single('image'), recipeController.scanIngredients);
+// ✅ Use uploadScanImage for the scan endpoint
+router.post('/scan', protect, uploadScanImage, recipeController.scanIngredients);
 router.post('/generate-from-ingredients', protect, recipeController.generateFromIngredients);
 
 // Public route with param - should be AFTER specific routes
@@ -26,5 +27,8 @@ router.get('/:id', recipeController.getRecipeById);
 router.post('/', protect, admin, uploadRecipeImage, recipeController.createRecipe);
 router.put('/:id', protect, admin, uploadRecipeImage, recipeController.updateRecipe);
 router.delete('/:id', protect, admin, recipeController.deleteRecipe);
+
+// Admin route to view user's scanned images
+router.get('/user/:userId/scans', protect, admin, recipeController.getUserScannedImages);
 
 module.exports = router;

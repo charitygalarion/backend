@@ -115,7 +115,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       field: 'token_version'
-    }
+    },
+     scannedImages: {
+      type: DataTypes.JSON,
+      field: 'scanned_images',
+      defaultValue: []
+    },
   }, {
     tableName: 'users',
     timestamps: true,
@@ -163,4 +168,4 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   return User;
-};
+}; 
