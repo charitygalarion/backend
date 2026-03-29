@@ -5,7 +5,8 @@ const notificationService = require('../notification/notification.service');
 class AdminService {
   
   // ============ USER MANAGEMENT FUNCTIONS ============
-async getUserDetails(userId) {
+
+  async getUserDetails(userId) {
   console.log('🔍 [ADMIN SERVICE] getUserDetails called');
   console.log('   User ID:', userId);
   console.log('   Type:', typeof userId);
@@ -39,18 +40,46 @@ async getUserDetails(userId) {
     });
     console.log('   User recipes count:', recipes.length);
     
-    // Get reported images
-    const reportedImages = user.reportedImages || [];
+    // ✅ Parse reportedImages (handle JSON string or array)
+    let reportedImages = [];
+    if (user.reportedImages) {
+      if (Array.isArray(user.reportedImages)) {
+        reportedImages = user.reportedImages;
+      } else if (typeof user.reportedImages === 'string') {
+        try {
+          reportedImages = JSON.parse(user.reportedImages);
+        } catch (e) {
+          console.error('   Failed to parse reportedImages:', e.message);
+          reportedImages = [];
+        }
+      } else if (typeof user.reportedImages === 'object') {
+        reportedImages = Object.values(user.reportedImages);
+      }
+    }
     console.log('   Reported images count:', reportedImages.length);
     
-    // ✅ NEW: Get scanned images
-    const scannedImages = user.scannedImages || [];
+    // ✅ Parse scannedImages (handle JSON string or array)
+    let scannedImages = [];
+    if (user.scannedImages) {
+      if (Array.isArray(user.scannedImages)) {
+        scannedImages = user.scannedImages;
+      } else if (typeof user.scannedImages === 'string') {
+        try {
+          scannedImages = JSON.parse(user.scannedImages);
+        } catch (e) {
+          console.error('   Failed to parse scannedImages:', e.message);
+          scannedImages = [];
+        }
+      } else if (typeof user.scannedImages === 'object') {
+        scannedImages = Object.values(user.scannedImages);
+      }
+    }
     console.log('   📸 Scanned images count:', scannedImages.length);
     
-    // Log scanned images details
-    if (scannedImages.length > 0) {
-      scannedImages.forEach((scan, idx) => {
-        console.log(`     Scan ${idx + 1}: ${scan.url}, ingredients: ${scan.ingredients?.length || 0}`);
+    // Log first few scanned images
+    if (scannedImages.length > 0 && Array.isArray(scannedImages)) {
+      scannedImages.slice(0, 3).forEach((scan, idx) => {
+        console.log(`     Scan ${idx + 1}:`, scan.url || 'No URL');
       });
     }
     
@@ -58,8 +87,8 @@ async getUserDetails(userId) {
       ...user.toJSON(),
       savedRecipesCount,
       recipes,
-      reportedImages,
-      scannedImages  // ✅ Add scanned images to result
+      reportedImages,  // ✅ Use parsed reportedImages
+      scannedImages     // ✅ Use parsed scannedImages
     };
     
     console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
@@ -116,20 +145,62 @@ async getAllUsers(filters = {}) {
         where: { user_id: user.id }
       });
       
-      // ✅ NEW: Get scanned images count
-      const scannedImagesCount = (user.scannedImages || []).length;
+      // ✅ CRITICAL FIX: Get scanned images count directly from the JSON field
+      let scannedImagesCount = 0;
+      if (user.scannedImages) {
+        // Log the raw data to debug
+        console.log(`   Raw scannedImages for ${user.username}:`, typeof user.scannedImages, user.scannedImages);
+        
+        // If it's already an array
+        if (Array.isArray(user.scannedImages)) {
+          scannedImagesCount = user.scannedImages.length;
+        } 
+        // If it's a string (JSON), parse it
+        else if (typeof user.scannedImages === 'string') {
+          try {
+            const parsed = JSON.parse(user.scannedImages);
+            scannedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
+            console.log(`   Parsed scannedImages for ${user.username}: ${scannedImagesCount} images`);
+          } catch (e) {
+            console.error(`   Failed to parse scannedImages for ${user.username}:`, e.message);
+            scannedImagesCount = 0;
+          }
+        }
+        // If it's an object with numeric keys
+        else if (typeof user.scannedImages === 'object') {
+          scannedImagesCount = Object.keys(user.scannedImages).length;
+        }
+      }
+      
+      console.log(`   ✅ User ${user.username}: scannedImagesCount = ${scannedImagesCount}, savedCount = ${savedCount}`);
+      
+      // Parse reportedImages count safely
+      let reportedImagesCount = 0;
+      if (user.reportedImages) {
+        if (Array.isArray(user.reportedImages)) {
+          reportedImagesCount = user.reportedImages.length;
+        } else if (typeof user.reportedImages === 'string') {
+          try {
+            const parsed = JSON.parse(user.reportedImages);
+            reportedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
+          } catch (e) {
+            reportedImagesCount = 0;
+          }
+        }
+      }
       
       return {
         ...user.toJSON(),
         savedRecipesCount: savedCount,
-        scannedImagesCount  // ✅ Add scanned images count
+        scannedImagesCount,
+        reportedImagesCount
       };
     }));
     
     console.log(`✅ [ADMIN SERVICE] getAllUsers completed, returning ${usersWithCount.length} users`);
     if (usersWithCount.length > 0) {
       console.log(`   First user: ${usersWithCount[0].username} (ID: ${usersWithCount[0].id})`);
-      console.log(`   Scanned images count for first user: ${usersWithCount[0].scannedImagesCount}`);
+      console.log(`   Scanned images count: ${usersWithCount[0].scannedImagesCount}`);
     }
     
     return usersWithCount;
@@ -139,6 +210,7 @@ async getAllUsers(filters = {}) {
     throw error;
   }
 }
+ 
 
   // ============ DASHBOARD & STATS ============
   

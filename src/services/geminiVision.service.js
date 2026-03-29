@@ -3,7 +3,6 @@ const axios = require('axios');
 class GeminiVisionService {
   constructor() {
     this.apiKey = process.env.GEMINI_API_KEY;
-    // ✅ gemini-2.5-flash is valid (latest model)
     this.model = 'gemini-2.5-flash';
     this.url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
   }
@@ -18,29 +17,25 @@ class GeminiVisionService {
       console.log('📸 Sending image to Gemini Vision...');
       console.log('📏 Image size:', (imageBuffer.length / 1024).toFixed(2), 'KB');
 
-      // Convert image to base64
       const base64Image = imageBuffer.toString('base64');
       const mimeType = 'image/jpeg';
 
-      // ✅ Correct API call format for gemini-2.5-flash
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`,
         {
-          contents: [
-            {
-              parts: [
-                {
-                  text: "List all the food ingredients you can see in this image. Return ONLY a comma-separated list of ingredient names. Example: 'garlic, onion, chicken, rice'"
-                },
-                {
-                  inlineData: {
-                    mimeType: mimeType,
-                    data: base64Image
-                  }
+          contents: [{
+            parts: [
+              {
+                text: "List all the food ingredients you can see in this image. Return ONLY a comma-separated list of ingredient names. Example: 'garlic, onion, chicken, rice'"
+              },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Image
                 }
-              ]
-            }
-          ],
+              }
+            ]
+          }],
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 200,
@@ -54,10 +49,10 @@ class GeminiVisionService {
         }
       );
 
-      // ✅ Parse the response correctly
-      const reply = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+      // ✅ SAFELY extract the response text
+      const reply = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       
-      if (reply && reply.trim()) {
+      if (reply && typeof reply === 'string' && reply.trim()) {
         const ingredients = reply.split(',').map(i => i.trim().toLowerCase());
         console.log('✅ Detected ingredients:', ingredients);
         
@@ -73,22 +68,14 @@ class GeminiVisionService {
     } catch (error) {
       console.error('❌ Gemini Vision error:', error.message);
       
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Error details:', error.response.data?.error?.message || error.response.data);
-        
-        if (error.response.status === 403) {
-          console.error('⚠️ API key is invalid or quota exceeded');
-        } else if (error.response.status === 429) {
-          console.error('⚠️ Rate limit exceeded. Try again later.');
-        }
-      }
-      
+      // ✅ Always return mock ingredients on error
+      console.log('⚠️ Using mock ingredients due to API error');
       return this.getMockIngredients();
     }
   }
 
   getMockIngredients() {
+    // ✅ Return a valid array with proper structure
     return [
       { name: 'garlic', confidence: 85 },
       { name: 'onion', confidence: 82 },
@@ -99,4 +86,4 @@ class GeminiVisionService {
   }
 }
 
-module.exports = new GeminiVisionService();
+module.exports = new GeminiVisionService(); 

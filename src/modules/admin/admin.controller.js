@@ -200,7 +200,7 @@ exports.banUser = async (req, res) => {
     console.error('   User ID:', req.params.id);
     console.error('   Stack:', error.stack);
     res.status(400).json({ message: error.message });
-  }
+  } 
 };
 
 exports.restoreUser = async (req, res) => {
@@ -420,7 +420,7 @@ exports.getUserScannedImages = async (req, res) => {
     
     const user = await db.User.findByPk(userId, {
       attributes: ['id', 'username', 'scannedImages']
-    });
+    }); 
     
     if (!user) {
       console.log('❌ [ADMIN] User not found:', userId);

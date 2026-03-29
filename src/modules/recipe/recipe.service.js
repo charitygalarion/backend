@@ -511,27 +511,77 @@ async getRecipeById(recipeId, userId = null, userRole = null) {
     }
   }
   
-  async scanIngredientsFromImage(imageBuffer) {
-    try {
-      console.log('📸 Scanning ingredients from image...');
-      
-      const detectedIngredients = await geminiVision.detectIngredients(imageBuffer);
-      const ingredientNames = detectedIngredients.map(i => i.name.toLowerCase());
-      
-      console.log('🔍 Detected:', ingredientNames.join(', '));
-      
-      const recipes = await this.findRecipesByIngredients(ingredientNames);
-      
-      return {
-        detected: detectedIngredients,
-        recipes: recipes
-      };
-    } catch (error) {
-      console.error('❌ Scan error:', error);
-      throw error;
+async scanIngredientsFromImage(imageBuffer, userId) {
+  try {
+    console.log('📸 Scanning ingredients from image...');
+    
+    const detectedIngredients = await geminiVision.detectIngredients(imageBuffer);
+    const ingredientNames = detectedIngredients.map(i => i.name.toLowerCase());
+    
+    console.log('🔍 Detected:', ingredientNames.join(', '));
+    
+    const recipes = await this.findRecipesByIngredients(ingredientNames);
+    
+    // ✅ SAVE THE SCANNED IMAGE TO USER'S RECORD
+    if (userId) {
+      try {
+        // Get the user
+        const user = await db.User.findByPk(userId);
+        
+        if (user) {
+          // Get current scanned images (ensure it's an array)
+          let scannedImages = [];
+          
+          // Check what type scannedImages is
+          if (user.scannedImages) {
+            if (Array.isArray(user.scannedImages)) {
+              scannedImages = user.scannedImages;
+            } else if (typeof user.scannedImages === 'string') {
+              try {
+                scannedImages = JSON.parse(user.scannedImages);
+                if (!Array.isArray(scannedImages)) scannedImages = [];
+              } catch (e) {
+                scannedImages = [];
+              }
+            } else if (typeof user.scannedImages === 'object') {
+              scannedImages = Object.values(user.scannedImages);
+              if (!Array.isArray(scannedImages)) scannedImages = [];
+            }
+          }
+          
+          // Create scan record
+          const scanRecord = {
+            url: `/uploads/scans/scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`,
+            scannedAt: new Date(),
+            ingredients: detectedIngredients,
+            originalFilename: `scan_${Date.now()}.jpg`
+          };
+          
+          // Add to array
+          scannedImages.push(scanRecord);
+          
+          // Save back to database (as JSON string)
+          await user.update({
+            scannedImages: JSON.stringify(scannedImages)
+          });
+          
+          console.log('✅ Scanned image saved to user record');
+        }
+      } catch (saveError) {
+        console.error('❌ Failed to save scanned image:', saveError);
+        // Don't throw - continue to return results
+      }
     }
+    
+    return {
+      detected: detectedIngredients,
+      recipes: recipes
+    };
+  } catch (error) {
+    console.error('❌ Scan error:', error);
+    throw error;
   }
-
+} 
 
   // Add these methods to RecipeService class
 

@@ -5,17 +5,17 @@ const { uploadRecipeImage, uploadScanImage } = require('../../config/upload'); /
 const recipeController = require('./recipe.controller');
 const multer = require('multer');
 const upload = multer();
-
+ 
 // Public routes
 router.get('/', recipeController.getRecipes);
 router.get('/recent', recipeController.getRecentRecipes);
 router.get('/popular', recipeController.getPopularRecipes); 
 router.post('/find-by-ingredients', recipeController.findRecipesByIngredients);
-
+ 
 // Protected routes - MUST be BEFORE /:id
 router.get('/saved', protect, recipeController.getSavedRecipes);
 router.put('/:id/servings', protect, recipeController.adjustServingSize);
-
+ 
 // ✅ Use uploadScanImage for the scan endpoint
 router.post('/scan', protect, uploadScanImage, recipeController.scanIngredients);
 router.post('/generate-from-ingredients', protect, recipeController.generateFromIngredients);

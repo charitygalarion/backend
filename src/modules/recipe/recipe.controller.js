@@ -101,7 +101,6 @@ exports.getSavedRecipes = async (req, res) => {
   }
 }; 
 
-// In recipe.controller.js - update the scanIngredients function
 exports.scanIngredients = async (req, res) => {
   try {
     if (!req.file) {
@@ -120,7 +119,24 @@ exports.scanIngredients = async (req, res) => {
     // Save the scanned image to user's scannedImages array
     const user = await db.User.findByPk(userId);
     if (user) {
-      const scannedImages = user.scannedImages || [];
+      // ✅ FIX: Ensure scannedImages is an array
+      let scannedImages = [];
+      
+      // Check what type scannedImages is
+      if (user.scannedImages) {
+        if (Array.isArray(user.scannedImages)) {
+          scannedImages = user.scannedImages;
+        } else if (typeof user.scannedImages === 'string') {
+          try {
+            scannedImages = JSON.parse(user.scannedImages);
+            if (!Array.isArray(scannedImages)) scannedImages = [];
+          } catch (e) {
+            scannedImages = [];
+          }
+        }
+      }
+      
+      // Add new scan
       scannedImages.push({
         url: imageUrl,
         scannedAt: new Date(),
@@ -129,7 +145,8 @@ exports.scanIngredients = async (req, res) => {
         fileSize: req.file.size
       });
       
-      await user.update({ scannedImages });
+      // Save as JSON string to avoid issues
+      await user.update({ scannedImages: JSON.stringify(scannedImages) });
       console.log('✅ Scanned image saved for user:', userId);
       console.log('📊 Total scanned images:', scannedImages.length);
     }
@@ -145,6 +162,7 @@ exports.scanIngredients = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Add these functions after getRecipes
  
@@ -206,12 +224,26 @@ exports.getUserScannedImages = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // ✅ Parse scannedImages if it's a string
+    let scannedImages = [];
+    if (user.scannedImages) {
+      if (Array.isArray(user.scannedImages)) {
+        scannedImages = user.scannedImages;
+      } else if (typeof user.scannedImages === 'string') {
+        try {
+          scannedImages = JSON.parse(user.scannedImages);
+        } catch (e) {
+          scannedImages = [];
+        }
+      }
+    }
+    
     res.json({
       success: true,
-      scannedImages: user.scannedImages || []
+      scannedImages: scannedImages
     });
   } catch (error) {
     console.error('❌ Error fetching scanned images:', error);
     res.status(500).json({ message: error.message });
   }
-}; 
+};
