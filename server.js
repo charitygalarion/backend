@@ -2,7 +2,7 @@ const app = require('./src/app');
 const { sequelize } = require('./config/database');
 
 const PORT = process.env.PORT || 5000;
-const MY_IP = process.env.MY_IP || '10.205.101.2';
+const MY_IP = process.env.MY_IP || '172.20.161.2';
 const WIFI_IP = process.env.WIFI_IP || '192.168.1.29';
 
 // Test database connection and start server

@@ -44,7 +44,7 @@ const transformResponse = (data) => {
   delete obj.created_by;
   delete obj.is_filipino;
   
-  return obj;
+  return obj; 
 };
 
 // Format success response

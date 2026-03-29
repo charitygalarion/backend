@@ -2,32 +2,54 @@ const db = require('../../database/models');
 const { Op } = require('sequelize');
 const notificationService = require('../notification/notification.service');
 
-// Helper function to safely parse scannedImages (handles double-encoded JSON)
-function parseScannedImages(scannedImages) {
-  if (!scannedImages) return [];
+
+function parseScannedImages(scannedImages, context = '') {
+  console.log(`🔧 [parseScannedImages] ${context} - START`);
+  console.log(`   Input type: ${typeof scannedImages}`);
+  console.log(`   Input is null: ${scannedImages === null}`);
+  console.log(`   Input is undefined: ${scannedImages === undefined}`);
+  
+  if (typeof scannedImages === 'string') {
+    console.log(`   Input string length: ${scannedImages.length}`);
+    console.log(`   Input preview: ${scannedImages.substring(0, 200)}`);
+  } else {
+    console.log(`   Input value:`, scannedImages);
+  }
+  
+  if (!scannedImages) {
+    console.log(`   ${context} -> No scannedImages, returning []`);
+    return [];
+  }
   
   let result = scannedImages;
+  let parseCount = 0;
+  const maxParses = 5;
   
-  // First parse attempt
-  if (typeof result === 'string') {
+  while (typeof result === 'string' && parseCount < maxParses) {
     try {
       result = JSON.parse(result);
+      parseCount++;
+      console.log(`   ${context} -> Parse ${parseCount} successful`);
+      console.log(`       Result type: ${typeof result}`);
+      console.log(`       Is array: ${Array.isArray(result)}`);
+      if (Array.isArray(result)) {
+        console.log(`       Array length: ${result.length}`);
+      }
     } catch (e) {
-      return [];
+      console.log(`   ${context} -> Parse ${parseCount} failed: ${e.message}`);
+      break;
     }
   }
   
-  // Second parse attempt (for double-encoded JSON)
-  if (typeof result === 'string') {
-    try {
-      result = JSON.parse(result);
-    } catch (e) {
-      return [];
-    }
+  const isValid = Array.isArray(result);
+  console.log(`   ${context} -> Final result: isArray=${isValid}, length=${isValid ? result.length : 0}`);
+  
+  if (isValid && result.length > 0) {
+    console.log(`   ${context} -> First item preview:`, JSON.stringify(result[0]).substring(0, 200));
   }
   
-  // Return array if valid, otherwise empty array
-  return Array.isArray(result) ? result : [];
+  console.log(`🔧 [parseScannedImages] ${context} - END`);
+  return isValid ? result : [];
 }
 
 class AdminService {
@@ -53,6 +75,9 @@ class AdminService {
       console.log('   User ID:', user.id);
       console.log('   User role:', user.role);
       console.log('   User status:', user.status);
+      console.log('   Raw scannedImages field type:', typeof user.scannedImages);
+      console.log('   Raw scannedImages value preview:', 
+        typeof user.scannedImages === 'string' ? user.scannedImages.substring(0, 200) : user.scannedImages);
       
       // Get saved recipes count
       const savedRecipesCount = await db.UserSavedRecipe.count({
@@ -71,11 +96,13 @@ class AdminService {
       // Parse reportedImages
       let reportedImages = [];
       if (user.reportedImages) {
+        console.log('   Raw reportedImages type:', typeof user.reportedImages);
         if (Array.isArray(user.reportedImages)) {
           reportedImages = user.reportedImages;
         } else if (typeof user.reportedImages === 'string') {
           try {
             reportedImages = JSON.parse(user.reportedImages);
+            console.log('   Reported images parsed from string, count:', reportedImages.length);
           } catch (e) {
             console.error('   Failed to parse reportedImages:', e.message);
             reportedImages = [];
@@ -85,13 +112,14 @@ class AdminService {
       console.log('   Reported images count:', reportedImages.length);
       
       // ✅ Parse scannedImages using helper function
-      const scannedImages = parseScannedImages(user.scannedImages);
+      const scannedImages = parseScannedImages(user.scannedImages, 'getUserDetails');
       console.log('   📸 Scanned images count:', scannedImages.length);
       
       // Log first few scanned images
       if (scannedImages.length > 0) {
         scannedImages.slice(0, 3).forEach((scan, idx) => {
           console.log(`     Scan ${idx + 1}:`, scan.url || 'No URL');
+          console.log(`       Ingredients:`, scan.ingredients?.length || 0);
         });
       }
       
@@ -104,6 +132,7 @@ class AdminService {
       };
       
       console.log('✅ [ADMIN SERVICE] getUserDetails completed successfully');
+      console.log('result:',result);
       return result;
     } catch (error) {
       console.error('❌ [ADMIN SERVICE] getUserDetails error:', error.message);
@@ -157,32 +186,19 @@ class AdminService {
           where: { user_id: user.id }
         });
         
+        console.log(`   📊 Processing user: ${user.username} (ID: ${user.id})`);
+        console.log(`      Raw scannedImages type: ${typeof user.scannedImages}`);
+        
         // ✅ Parse scannedImages using helper function
-        const parsedScannedImages = parseScannedImages(user.scannedImages);
+        const parsedScannedImages = parseScannedImages(user.scannedImages, `getAllUsers-${user.username}`);
         const scannedImagesCount = parsedScannedImages.length;
         
-        console.log(`   ✅ User ${user.username}: scannedImagesCount = ${scannedImagesCount}, savedCount = ${savedCount}`);
-        
-        // Parse reportedImages count
-        let reportedImagesCount = 0;
-        if (user.reportedImages) {
-          if (Array.isArray(user.reportedImages)) {
-            reportedImagesCount = user.reportedImages.length;
-          } else if (typeof user.reportedImages === 'string') {
-            try {
-              const parsed = JSON.parse(user.reportedImages);
-              reportedImagesCount = Array.isArray(parsed) ? parsed.length : 0;
-            } catch (e) {
-              reportedImagesCount = 0;
-            }
-          }
-        }
+        console.log(`      ✅ ${user.username}: scannedImagesCount = ${scannedImagesCount}, savedCount = ${savedCount}`);
         
         return {
           ...user.toJSON(),
           savedRecipesCount: savedCount,
           scannedImagesCount,
-          reportedImagesCount
         };
       }));
       
@@ -199,6 +215,7 @@ class AdminService {
       throw error;
     }
   }
+
 
   // ============ DASHBOARD & STATS ============
   
@@ -230,7 +247,7 @@ class AdminService {
       console.log('   Users active today:', usersActiveToday);
       
       const totalRecipesSaved = await db.UserSavedRecipe.count({
-        distinct: true,
+        distinct: true, 
         col: 'recipe_id'
       });
       console.log('   Total recipes saved:', totalRecipesSaved);
@@ -632,7 +649,7 @@ class AdminService {
       console.error('❌ [ADMIN SERVICE] restoreUser error:', error.message);
       console.error('   Stack:', error.stack);
       throw error;
-    }
+    } 
   }
 }
 

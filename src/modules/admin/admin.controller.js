@@ -408,9 +408,13 @@ exports.deleteRecipe = async (req, res) => {
   }
 }; 
 
-// Helper function to safely parse scannedImages
-function parseScannedImages(scannedImages) {
-  if (!scannedImages) return [];
+function parseScannedImages(scannedImages, context = '') {
+  console.log(`🔧 [CONTROLLER parseScannedImages] ${context} - START`);
+  
+  if (!scannedImages) {
+    console.log(`   ${context} -> No scannedImages, returning []`);
+    return [];
+  }
   
   let result = scannedImages;
   let parseCount = 0;
@@ -420,18 +424,24 @@ function parseScannedImages(scannedImages) {
     try {
       result = JSON.parse(result);
       parseCount++;
+      console.log(`   ${context} -> Parse ${parseCount} successful`);
     } catch (e) {
+      console.log(`   ${context} -> Parse ${parseCount} failed: ${e.message}`);
       break;
     }
   }
   
-  return Array.isArray(result) ? result : [];
+  const isValid = Array.isArray(result);
+  console.log(`   ${context} -> Final: isArray=${isValid}, length=${isValid ? result.length : 0}`);
+  return isValid ? result : [];
 }
 
 exports.getUserScannedImages = async (req, res) => {
   try {
     console.log('📸 [ADMIN] getUserScannedImages called');
+    console.log('   Timestamp:', new Date().toISOString());
     console.log('   User ID:', req.params.id);
+    console.log('   Admin:', req.user?.username);
     
     const userId = req.params.id;
     
@@ -440,21 +450,34 @@ exports.getUserScannedImages = async (req, res) => {
     });
     
     if (!user) {
+      console.log('❌ [ADMIN] User not found:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // ✅ Parse the double-encoded JSON
-    const scannedImages = parseScannedImages(user.scannedImages);
+    console.log(`   User found: ${user.username}`);
+    console.log(`   Raw scannedImages type: ${typeof user.scannedImages}`);
+    console.log(`   Raw scannedImages preview:`, 
+      typeof user.scannedImages === 'string' ? user.scannedImages.substring(0, 300) : user.scannedImages);
     
-    console.log('✅ Returning scanned images count:', scannedImages.length);
+    // ✅ Parse the double-encoded JSON
+    const scannedImages = parseScannedImages(user.scannedImages, 'getUserScannedImages');
+    
+    console.log('✅ [ADMIN] getUserScannedImages completed');
+    console.log('   Returning scanned images count:', scannedImages.length);
+    
+    if (scannedImages.length > 0) {
+      console.log('   First scan URL:', scannedImages[0]?.url);
+      console.log('   First scan ingredients:', scannedImages[0]?.ingredients?.length);
+    }
     
     res.json({
-      success: true, 
+      success: true,
       scannedImages: scannedImages,
       scannedImagesCount: scannedImages.length
     });
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ [ADMIN] getUserScannedImages error:', error.message);
+    console.error('   Stack:', error.stack);
     res.status(500).json({ message: error.message });
-  }
+  } 
 };
