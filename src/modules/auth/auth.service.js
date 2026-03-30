@@ -36,19 +36,16 @@ class AuthService {
   }
   
   async login(email, password) {
-    // Find user
     const user = await db.User.findOne({ where: { email } });
     
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new Error('No account found with that email.'); // ← changed
     }
-    
-    // Check if user is banned (prevent login)
+
     if (user.status === 'banned') {
       throw new Error('Your account has been permanently banned. Please contact support.');
     }
-    
-    // Check if user is suspended (prevent login)
+
     if (user.status === 'suspended') {
       const suspendedUntil = new Date(user.suspendedUntil);
       const now = new Date();
@@ -57,7 +54,6 @@ class AuthService {
         const daysLeft = Math.ceil((suspendedUntil - now) / (1000 * 60 * 60 * 24));
         throw new Error(`Your account is suspended. Please try again after ${suspendedUntil.toLocaleDateString()}. (${daysLeft} days remaining)`);
       } else {
-        // Auto-restore if suspension expired
         await user.update({
           status: 'active',
           suspensionReason: null,
@@ -68,21 +64,17 @@ class AuthService {
       }
     }
     
-    // Check password
     const isPasswordValid = await comparePassword(password, user.password);
     
     if (!isPasswordValid) {
-      throw new Error('Invalid email or password');
+      throw new Error('Incorrect password. Please try again.'); // ← changed
     }
     
-    // Update last active
     await user.update({ lastActive: new Date() });
     
-    // Generate token with token version
     const tokenVersion = user.tokenVersion || 0;
     const token = generateToken(user.id, tokenVersion);
     
-    // Return user data without sensitive fields
     const userData = {
       id: user.id,
       username: user.username,
