@@ -23,6 +23,10 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes - Modular Architecture
 const authRoutes = require('./modules/auth/auth.routes');
+
+// Import the user status middleware
+const checkUserStatus = require('./middlewares/checkUserStatus');
+
 const userRoutes = require('./modules/user/user.routes');
 const recipeRoutes = require('./modules/recipe/recipe.routes');
 const ingredientRoutes = require('./modules/ingredient/ingredient.routes');
@@ -30,8 +34,7 @@ const adminRoutes = require('./modules/admin/admin.routes');
 const chatbotRoutes = require('./modules/chatbot/chatbot.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 
-// Import the user status middleware
-const checkUserStatus = require('./middlewares/checkUserStatus');
+
 
 // API endpoints
 app.use('/api/auth', authRoutes);

@@ -24,7 +24,7 @@ router.put('/users/:id/ban', adminController.banUser);
 router.put('/users/:id/restore', adminController.restoreUser);
 
 // DELETE route
-router.delete('/users/:id', adminController.deleteUser);
+router.delete('/users/:id', adminController.deleteUser); 
 
 // ============ RECIPE MANAGEMENT ============
 router.get('/recipes', adminController.getAllRecipes);
